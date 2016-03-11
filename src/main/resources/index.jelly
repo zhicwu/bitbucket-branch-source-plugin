@@ -1,0 +1,7 @@
+<?jelly escape-by-default='true'?>
+<div>
+  <b>CloudBees Jenkins Enterprise</b><br/>
+  Allows to use Bitbucket Cloud as a source for multi-branch projects. It also
+  provides the required connectors for Bitbucket Cloud Team Folder (also known as
+  repositories auto-discovering).
+</div>
