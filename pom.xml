@@ -38,6 +38,12 @@
     <name>Bitbucket Branch Source Plugin</name>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/Bitbucket+Branch+Source+Plugin</url>
     <description>Discover and build Bitbucket Cloud and Bitbucket Server pull requests and branches and send status notifications with the build result.</description>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
 
     <properties>
         <jenkins.version>1.609.2</jenkins.version>
@@ -102,5 +108,18 @@
           <scope>test</scope>
         </dependency>
     </dependencies>
+
+     <repositories>
+        <repository>
+            <id>repo.jenkins-ci.org</id>
+            <url>http://repo.jenkins-ci.org/public/</url>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>repo.jenkins-ci.org</id>
+            <url>http://repo.jenkins-ci.org/public/</url>
+        </pluginRepository>
+    </pluginRepositories>
 
 </project>
