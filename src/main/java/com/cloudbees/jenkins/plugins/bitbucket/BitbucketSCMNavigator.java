@@ -206,7 +206,17 @@ public class BitbucketSCMNavigator extends SCMNavigator {
 
         @Override
         public String getDisplayName() {
-            return "Bitbucket Team/Project";
+            return Messages.BitbucketSCMNavigator_DisplayName();
+        }
+
+        @Override
+        public String getDescription() {
+            return Messages.BitbucketSCMNavigator_Description();
+        }
+
+        @Override
+        public String getIconFilePathPattern() {
+            return "plugin/cloudbees-bitbucket-branch-source/images/:size/bitbucket-scmnavigator.png";
         }
 
         @Override
