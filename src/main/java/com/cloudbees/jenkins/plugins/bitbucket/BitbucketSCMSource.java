@@ -384,6 +384,14 @@ public class BitbucketSCMSource extends SCMSource {
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch b : branches) {
             if (b.getName().equals(bbHead.getBranchName())) {
+                if (b.getRawNode() == null) {
+                    if (getBitbucketServerUrl() == null) {
+                        listener.getLogger().format("Cannot resolve the hash of the revision in branch %s", b.getName());
+                    } else {
+                        listener.getLogger().format("Cannot resolve the hash of the revision in branch %s. Perhaps you are using Bitbucket Server previous to 4.x", b.getName());
+                    }
+                    return null;
+                }
                 if (getRepositoryType() == RepositoryType.MERCURIAL) {
                     return new MercurialRevision(head, b.getRawNode());
                 } else {
