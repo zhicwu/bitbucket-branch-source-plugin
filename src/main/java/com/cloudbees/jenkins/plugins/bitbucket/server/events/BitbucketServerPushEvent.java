@@ -25,19 +25,19 @@ package com.cloudbees.jenkins.plugins.bitbucket.server.events;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPushEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketServerPushEvent implements BitbucketPushEvent{
 
-    private BitbucketCloudRepository repository;
+    private BitbucketServerRepository repository;
 
     public BitbucketRepository getRepository() {
         return repository;
     }
 
-    public void setRepository(BitbucketCloudRepository repository) {
+    public void setRepository(BitbucketServerRepository repository) {
         this.repository = repository;
     }
 
