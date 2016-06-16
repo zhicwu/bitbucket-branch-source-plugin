@@ -70,14 +70,9 @@ public abstract class HookProcessor {
                     List<SCMSource> sources = scmOwner.getSCMSources();
                     for (SCMSource source : sources) {
                         // Search for the correct SCM source
-                        if (source instanceof BitbucketSCMSource)
-                        {
-                            LOGGER.info(String.format("Owners %s , %s", ((BitbucketSCMSource) source).getRepoOwner(), owner));
-                            LOGGER.info(String.format("Repos %s , %s", ((BitbucketSCMSource) source).getRepository(), repository));
-                            if (((BitbucketSCMSource) source).getRepoOwner().equals(owner) && ((BitbucketSCMSource) source).getRepository().equals(repository))
-                            {
-                                scmOwner.onSCMSourceUpdated(source);
-                            }
+                        if (source instanceof BitbucketSCMSource && ((BitbucketSCMSource) source).getRepoOwner().equals(owner)
+                                && ((BitbucketSCMSource) source).getRepository().equals(repository)) {
+                            scmOwner.onSCMSourceUpdated(source);
                         }
                     }
                 }
