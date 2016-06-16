@@ -23,20 +23,30 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
-import java.util.logging.Logger;
-
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPushEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudWebhookPayload;
-import com.cloudbees.jenkins.plugins.bitbucket.client.events.BitbucketPushEvent;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.BitbucketServerWebhookPayload;
+
+import java.util.logging.Logger;
 
 public class PushHookProcessor extends HookProcessor {
 
     private static final Logger LOGGER = Logger.getLogger(PushHookProcessor.class.getName());
 
     @Override
-    public void process(String payload) {
+    public void process(String payload, BitbucketType instanceType) {
         if (payload != null) {
             // TODO: generalize this for BB server
-            BitbucketPushEvent push = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
+            BitbucketPushEvent push;
+            switch (instanceType)
+            {
+            case SERVER:
+                push = BitbucketServerWebhookPayload.pushEventFromPayload(payload);
+                break;
+            case CLOUD:
+            default:
+                push = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
+            }
             if (push != null) {
                 String owner = push.getRepository().getOwnerName();
                 String repository = push.getRepository().getRepositoryName();
