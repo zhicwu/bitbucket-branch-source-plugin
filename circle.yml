@@ -3,7 +3,7 @@ machine:
     AWS_REGION: 'ap-northeast-1'
 
 test:
-  pre:
+  post:
     - mvn package
     - mkdir $CIRCLE_ARTIFACTS/plugin
     - mv /home/ubuntu/bitbucket-branch-source-plugin/target/*.hpi $CIRCLE_ARTIFACTS/plugin
