@@ -34,12 +34,15 @@ import java.util.logging.Logger;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
+import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -54,6 +57,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranches;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerCommit;
@@ -62,6 +66,8 @@ import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.Bitbuck
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerProject;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepositories;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhook;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhooks;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 
 import hudson.ProxyConfiguration;
@@ -87,18 +93,21 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     private static final String API_PROJECT_PATH = API_BASE_PATH + "/projects/%s";
     private static final String API_COMMIT_COMMENT_PATH = API_REPOSITORY_PATH + "/commits/%s/comments";
 
+    private static final String WEBHOOK_BASE_PATH = "/rest/webhook/1.0";
+    private static final String WEBHOOK_REPOSITORY_PATH = WEBHOOK_BASE_PATH + "/projects/%s/repos/%s/configurations";
+    private static final String WEBHOOK_REPOSITORY_CONFIG_PATH = WEBHOOK_REPOSITORY_PATH + "/%s";
+
     private static final String API_COMMIT_STATUS_PATH = "/rest/build-status/1.0/commits/%s";
 
     private static final int MAX_PAGES = 100;
 
     /**
-     * Repository owner.
-     * This must be null if {@link #project} is not null.
+     * Repository owner or project name.
      */
     private String owner;
 
     /**
-     * Thre repository that this object is managing.
+     * The repository that this object is managing.
      */
     private String repositoryName;
 
@@ -109,7 +118,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
     /**
      * Credentials to access API services.
-     * Almost @NonNull (but null is accepted for annonymous access).
+     * Almost @NonNull (but null is accepted for anonymous access).
      */
     private UsernamePasswordCredentials credentials;
 
@@ -152,7 +161,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
      * In Bitbucket server the top level entity is the Project, but the JSON API accepts users as a replacement
      * of Projects in most of the URLs (it's called user centric API).
      *
-     * This method returns the appropiate string to be placed in request URLs taking into account if this client
+     * This method returns the appropriate string to be placed in request URLs taking into account if this client
      * object was created as a user centric instance or not.
      * 
      * @return the ~user or project
@@ -173,7 +182,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         String url = String.format(API_PULL_REQUESTS_PATH, getUserCentricOwner(), repositoryName, 0);
 
         try {
-            List<BitbucketServerPullRequest> pullRequests = new ArrayList<BitbucketServerPullRequest>();
+            List<BitbucketServerPullRequest> pullRequests = new ArrayList<>();
             Integer pageNumber = 1;
             String response = getRequest(url);
             BitbucketServerPullRequests page = parse(response, BitbucketServerPullRequests.class);
@@ -188,7 +197,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "invalid pull requests response", e);
         }
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -253,7 +262,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         String url = String.format(API_BRANCHES_PATH, getUserCentricOwner(), repositoryName, 0);
 
         try {
-            List<BitbucketServerBranch> branches = new ArrayList<BitbucketServerBranch>();
+            List<BitbucketServerBranch> branches = new ArrayList<>();
             Integer pageNumber = 1;
             String response = getRequest(url);
             BitbucketServerBranches page = parse(response, BitbucketServerBranches.class);
@@ -268,7 +277,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "invalid branches response", e);
         }
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -290,19 +299,35 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     @Override
-    public void registerCommitWebHook(BitbucketWebHook hook) {
-        // TODO
+    public void registerCommitWebHook() {
+        try {
+            putRequest(String.format(WEBHOOK_REPOSITORY_PATH, getUserCentricOwner(), repositoryName), serialize(getHook()));
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "cannot register webhook", e);
+        }
+    }
+
+    private BitbucketWebHook getHook() {
+        BitbucketServerWebhook hooks = new BitbucketServerWebhook();
+        hooks.setActive(true);
+        hooks.setDescription("Jenkins hooks");
+        hooks.setUrl(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH);
+        return hooks;
     }
 
     @Override
     public void removeCommitWebHook(BitbucketWebHook hook) {
-        // TODO
+        deleteRequest(String.format(WEBHOOK_REPOSITORY_CONFIG_PATH, getUserCentricOwner(), repositoryName, hook.getUuid()));
     }
 
     @Override
-    public List<BitbucketWebHook> getWebHooks() {
-        // TODO
-        return Collections.EMPTY_LIST;
+    public List<BitbucketServerWebhook> getWebHooks() {
+        String response = getRequest(String.format(WEBHOOK_REPOSITORY_PATH, getUserCentricOwner(), repositoryName));
+        try {
+            return parse(response, BitbucketServerWebhooks.class);
+        } catch (IOException e) {
+            return Collections.emptyList();
+        }
     }
 
     /**
@@ -331,7 +356,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         String url = String.format(API_REPOSITORIES_PATH, getUserCentricOwner(), 0);
 
         try {
-            List<BitbucketServerRepository> repositories = new ArrayList<BitbucketServerRepository>();
+            List<BitbucketServerRepository> repositories = new ArrayList<>();
             Integer pageNumber = 1;
             String response = getRequest(url);
             BitbucketServerRepositories page = parse(response, BitbucketServerRepositories.class);
@@ -346,7 +371,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "invalid branches response", e);
         }
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     /** {@inheritDoc} */
@@ -358,7 +383,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     @Override
     public boolean isPrivate() {
         BitbucketRepository repo = getRepository();
-        return repo != null ? repo.isPrivate() : false;
+        return repo != null && repo.isPrivate();
     }
 
 
@@ -381,8 +406,6 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             if (httpget.getStatusCode() != HttpStatus.SC_OK) {
                 throw new BitbucketRequestException(httpget.getStatusCode(), "HTTP request error. Status: " + httpget.getStatusCode() + ": " + httpget.getStatusText() + ".\n" + response);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
         } catch (IOException e) {
             throw new BitbucketRequestException(0, "Communication error: " + e, e);
         } finally {
@@ -430,8 +453,6 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         try {
             client.executeMethod(httpget);
             return httpget.getStatusCode();
-        } catch (HttpException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Communication error", e);
         } finally {
@@ -448,13 +469,25 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     private String postRequest(String path, NameValuePair[] params) throws UnsupportedEncodingException {
         PostMethod httppost = new PostMethod(this.baseURL + path);
         httppost.setRequestEntity(new StringRequestEntity(nameValueToJson(params), "application/json", "UTF-8"));
-        return postRequest(httppost);
+        return doRequest(httppost);
     }
 
     private String postRequest(String path, String content) throws UnsupportedEncodingException {
         PostMethod httppost = new PostMethod(this.baseURL + path);
         httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
-        return postRequest(httppost);
+        return doRequest(httppost);
+    }
+
+    private String putRequest(String path, String content) throws UnsupportedEncodingException {
+        PutMethod httppost = new PutMethod(this.baseURL + path);
+        httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
+        LOGGER.info(content);
+        return doRequest(httppost);
+    }
+
+    private String deleteRequest(String path) {
+        DeleteMethod httpDelete = new DeleteMethod(this.baseURL + path);
+        return doRequest(httpDelete);
     }
 
     private String nameValueToJson(NameValuePair[] params) {
@@ -465,31 +498,29 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return o.toString();
     }
 
-    private String postRequest(PostMethod httppost) throws UnsupportedEncodingException {
+    private String doRequest(HttpMethod httpMethod) {
         HttpClient client = getHttpClient();
         client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
         String response = null;
         InputStream responseBodyAsStream = null;
         try {
-            client.executeMethod(httppost);
-            if (httppost.getStatusCode() == HttpStatus.SC_NO_CONTENT) {
+            client.executeMethod(httpMethod);
+            if (httpMethod.getStatusCode() == HttpStatus.SC_NO_CONTENT) {
                 // 204, no content
                 return "";
             }
-            responseBodyAsStream = httppost.getResponseBodyAsStream();
+            responseBodyAsStream = httpMethod.getResponseBodyAsStream();
             if (responseBodyAsStream != null) {
                 response = IOUtils.toString(responseBodyAsStream, "UTF-8");
             }
-            if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
-                throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
+            if (httpMethod.getStatusCode() != HttpStatus.SC_OK && httpMethod.getStatusCode() != HttpStatus.SC_CREATED) {
+                throw new BitbucketRequestException(httpMethod.getStatusCode(), "HTTP request error. Status: " + httpMethod.getStatusCode() + ": " + httpMethod.getStatusText() + ".\n" + response);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
         } catch (IOException e) {
             throw new BitbucketRequestException(0, "Communication error: " + e, e);
         } finally {
-            httppost.releaseConnection();
+            httpMethod.releaseConnection();
             if (responseBodyAsStream != null) {
                 IOUtils.closeQuietly(responseBodyAsStream);
             }

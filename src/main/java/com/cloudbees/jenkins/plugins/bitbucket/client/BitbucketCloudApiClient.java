@@ -28,11 +28,14 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.HookEventType;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpStatus;
@@ -240,7 +243,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     @Override
     @CheckForNull
     public String resolveSourceFullHash(BitbucketPullRequest pull) {
-        String response = getRequest(V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" + 
+        String response = getRequest(V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" +
                 pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit().getHash());
         try {
             return parse(response, BitbucketCloudCommit.class).getHash();
@@ -252,12 +255,22 @@ public class BitbucketCloudApiClient implements BitbucketApi {
 
     /** {@inheritDoc} */
     @Override
-    public void registerCommitWebHook(BitbucketWebHook hook) {
+    public void registerCommitWebHook() {
         try {
-            postRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks", asJson(hook));
+            postRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks", asJson(getHook()));
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "cannot register webhook", e);
         }
+    }
+
+    private BitbucketWebHook getHook() {
+        BitbucketRepositoryHook hooks = new BitbucketRepositoryHook();
+        hooks.setActive(true);
+        hooks.setDescription("Jenkins hooks");
+        hooks.setUrl(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH);
+        hooks.setEvents(Arrays.asList(HookEventType.PUSH.getKey(),
+                HookEventType.PULL_REQUEST_CREATED.getKey(), HookEventType.PULL_REQUEST_UPDATED.getKey()));
+        return hooks;
     }
 
     /** {@inheritDoc} */

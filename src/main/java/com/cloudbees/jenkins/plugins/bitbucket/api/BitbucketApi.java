@@ -105,10 +105,8 @@ public interface BitbucketApi {
 
     /**
      * Register a webhook on the repository.
-     *
-     * @param hook the webhook object
      */
-    void registerCommitWebHook(BitbucketWebHook hook);
+    void registerCommitWebHook();
 
     /**
      * Remove the webhook (ID field required) from the repository.

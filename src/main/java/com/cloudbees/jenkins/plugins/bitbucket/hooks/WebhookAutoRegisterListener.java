@@ -106,7 +106,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
 
     // synchronized just to avoid duplicated webhooks in case SCMSourceOwner is updated repeteadly and quickly
     private synchronized void registerHooks(SCMSourceOwner owner) {
-        List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
+        List<BitbucketSCMSource> sources = getBitbucketSCMSources(owner);
         for (BitbucketSCMSource source : sources) {
             if (source.isAutoRegisterHook()) {
                 BitbucketApi bitbucket = source.buildBitbucketClient();
@@ -123,7 +123,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
                     String rootUrl = Jenkins.getActiveInstance().getRootUrl();
                     if (rootUrl != null && !rootUrl.startsWith("http://localhost")) {
                         LOGGER.info(String.format("Registering hook for %s/%s", source.getRepoOwner(), source.getRepository()));
-                        bitbucket.registerCommitWebHook(getHook());
+                        bitbucket.registerCommitWebHook();
                     } else {
                         LOGGER.warning(String.format("Can not register hook. Jenkins root URL is not valid: %s", rootUrl));
                     }
@@ -133,7 +133,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
     }
 
     private void removeHooks(SCMSourceOwner owner) {
-        List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
+        List<BitbucketSCMSource> sources = getBitbucketSCMSources(owner);
         for (BitbucketSCMSource source : sources) {
             if (source.isAutoRegisterHook()) {
                 BitbucketApi bitbucket = source.buildBitbucketClient();
@@ -150,7 +150,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
                     LOGGER.info(String.format("Removing hook for %s/%s", source.getRepoOwner(), source.getRepository()));
                     bitbucket.removeCommitWebHook(hook);
                 } else {
-                    LOGGER.log(Level.FINE, String.format("NOT removing hook for %s/%s because does not exists or its used in other project", 
+                    LOGGER.log(Level.FINE, String.format("NOT removing hook for %s/%s because does not exists or its used in other project",
                             source.getRepoOwner(), source.getRepository()));
                 }
             }
@@ -173,7 +173,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
         return false;
     }
 
-    private List<BitbucketSCMSource> getBitucketSCMSources(SCMSourceOwner owner) {
+    private List<BitbucketSCMSource> getBitbucketSCMSources(SCMSourceOwner owner) {
         List<BitbucketSCMSource> sources = new ArrayList<BitbucketSCMSource>();
         for (SCMSource source : owner.getSCMSources()) {
             if (source instanceof BitbucketSCMSource) {
@@ -181,17 +181,6 @@ public class WebhookAutoRegisterListener extends ItemListener {
             }
         }
         return sources;
-    }
-
-    private BitbucketWebHook getHook() {
-        // TODO: generalize this for BB server
-        BitbucketRepositoryHook hooks = new BitbucketRepositoryHook();
-        hooks.setActive(true);
-        hooks.setDescription("Jenkins hooks");
-        hooks.setUrl(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH);
-        hooks.setEvents(Arrays.asList(HookEventType.PUSH.getKey(), 
-                HookEventType.PULL_REQUEST_CREATED.getKey(), HookEventType.PULL_REQUEST_UPDATED.getKey()));
-        return hooks;
     }
 
     /**
