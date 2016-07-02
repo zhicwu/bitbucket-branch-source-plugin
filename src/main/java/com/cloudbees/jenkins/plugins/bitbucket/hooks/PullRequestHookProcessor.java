@@ -37,13 +37,10 @@ public class PullRequestHookProcessor extends HookProcessor {
     public void process(String payload, BitbucketType instanceType) {
         if (payload != null) {
             BitbucketPullRequestEvent pull;
-            switch (instanceType)
-            {
-            case SERVER:
+            if (instanceType == BitbucketType.SERVER) {
                 pull = BitbucketServerWebhookPayload.pullRequestEventFromPayload(payload);
-                break;
-            case CLOUD:
-            default:
+
+            } else {
                 pull = BitbucketCloudWebhookPayload.pullRequestEventFromPayload(payload);
             }
 
