@@ -23,6 +23,20 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
+import java.io.IOException;
+import java.util.logging.Logger;
+
+import hudson.security.csrf.CrumbExclusion;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.io.IOUtils;
+import org.kohsuke.stapler.HttpResponse;
+import org.kohsuke.stapler.StaplerRequest;
+
 import hudson.Extension;
 import hudson.model.UnprotectedRootAction;
 import hudson.util.HttpResponses;
@@ -38,13 +52,24 @@ import java.util.logging.Logger;
  * Process Bitbucket push and pull requests creations/updates hooks.
  */
 @Extension
-public class BitbucketSCMSourcePushHookReceiver implements UnprotectedRootAction {
+public class BitbucketSCMSourcePushHookReceiver extends CrumbExclusion implements UnprotectedRootAction {
 
     private static final Logger LOGGER = Logger.getLogger(BitbucketSCMSourcePushHookReceiver.class.getName());
 
     private static final String PATH = "bitbucket-scmsource-hook";
 
     public static final String FULL_PATH = PATH + "/notify";
+
+    @Override
+    public boolean process(HttpServletRequest req, HttpServletResponse resp, FilterChain chain)
+    throws IOException, ServletException {
+        String pathInfo = req.getPathInfo();
+        if (pathInfo != null && pathInfo.startsWith("/"+FULL_PATH)) {
+            chain.doFilter(req, resp);
+            return true;
+        }
+        return false;
+    }
 
     @Override
     public String getUrlName() {
