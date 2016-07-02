@@ -30,6 +30,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketCloudPullRequestEvent implements BitbucketPullRequestEvent {
@@ -37,7 +38,7 @@ public class BitbucketCloudPullRequestEvent implements BitbucketPullRequestEvent
     @JsonProperty("pullrequest")
     private BitbucketPullRequestValue pullRequest;
 
-    private BitbucketRepository repository;
+    private BitbucketCloudRepository repository;
 
     @Override
     public BitbucketPullRequest getPullRequest() {
@@ -53,7 +54,7 @@ public class BitbucketCloudPullRequestEvent implements BitbucketPullRequestEvent
         return repository;
     }
 
-    public void setRepository(BitbucketRepository repository) {
+    public void setRepository(BitbucketCloudRepository repository) {
         this.repository = repository;
     }
 
