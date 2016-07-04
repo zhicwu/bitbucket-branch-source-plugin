@@ -160,8 +160,7 @@ public class BitbucketBuildStatusNotifications {
         return null;
     }
     
-    private static void sendNotifications(Run<?, ?> build, TaskListener listener)
-    {
+    private static void sendNotifications(Run<?, ?> build, TaskListener listener) {
         BitbucketSCMSource source = lookUpSCMSource(build);
         if (source != null && extractRevision(build) != null) {
             BitbucketApi bitbucket = buildBitbucketClientForBuild(build, source);
