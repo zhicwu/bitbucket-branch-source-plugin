@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.auth.AuthScope;
@@ -83,6 +84,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private static final String V2_API_BASE_URL = "https://bitbucket.org/api/2.0/repositories/";
     private static final String V2_TEAMS_API_BASE_URL = "https://bitbucket.org/api/2.0/teams/";
     private static final int MAX_PAGES = 100;
+    private HttpClient client;
+    private static MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
     private String owner;
     private String repositoryName;
     private UsernamePasswordCredentials credentials;
@@ -376,11 +379,13 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return getRepositories(null);
     }
 
-    private HttpClient getHttpClient() {
-        HttpClient client = new HttpClient();
+    private synchronized HttpClient getHttpClient() {
 
-        client.getParams().setConnectionManagerTimeout(10 * 1000);
-        client.getParams().setSoTimeout(60 * 1000);
+        if (this.client != null) return this.client;
+
+        this.client = new HttpClient(connectionManager);
+        this.client.getParams().setConnectionManagerTimeout(10 * 1000);
+        this.client.getParams().setSoTimeout(60 * 1000);
 
         Jenkins jenkins = Jenkins.getInstance();
         ProxyConfiguration proxy = null;
@@ -389,16 +394,16 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
         if (proxy != null) {
             LOGGER.info("Jenkins proxy: " + proxy.name + ":" + proxy.port);
-            client.getHostConfiguration().setProxy(proxy.name, proxy.port);
+            this.client.getHostConfiguration().setProxy(proxy.name, proxy.port);
             String username = proxy.getUserName();
             String password = proxy.getPassword();
             if (username != null && !"".equals(username.trim())) {
                 LOGGER.info("Using proxy authentication (user=" + username + ")");
-                client.getState().setProxyCredentials(AuthScope.ANY,
+                this.client.getState().setProxyCredentials(AuthScope.ANY,
                     new UsernamePasswordCredentials(username, password));
             }
         }
-        return client;
+        return this.client;
     }
 
     private String getRequest(String path) {
