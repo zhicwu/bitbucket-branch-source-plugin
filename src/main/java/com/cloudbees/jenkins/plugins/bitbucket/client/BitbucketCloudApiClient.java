@@ -90,6 +90,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private String repositoryName;
     private UsernamePasswordCredentials credentials;
 
+    static {
+        connectionManager.getParams().setDefaultMaxConnectionsPerHost(20);
+        connectionManager.getParams().setMaxTotalConnections(22);
+    }
+
     public BitbucketCloudApiClient(String username, String password, String owner, String repositoryName) {
         if (!StringUtils.isBlank(username) && !StringUtils.isBlank(password)) {
             this.credentials = new UsernamePasswordCredentials(username, password);
