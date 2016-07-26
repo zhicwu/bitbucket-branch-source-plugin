@@ -72,7 +72,7 @@ public class BitbucketBuildStatus {
         this.description = description;
         this.state = state;
         this.url = url;
-        this.key = key;
+        this.key = key.substring(0, Math.min(key.length(), 40));
         this.name = name;
     }
 
@@ -113,7 +113,7 @@ public class BitbucketBuildStatus {
     }
 
     public void setKey(String key) {
-        this.key = key;
+        this.key = key.substring(0, Math.min(key.length(), 40));
     }
 
     public String getName() {
