@@ -48,6 +48,7 @@ import java.io.File;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
+import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
 
 /**
  * This class encapsulates all Bitbucket notifications logic.
@@ -63,12 +64,7 @@ public class BitbucketBuildStatusNotifications {
         String revision = extractRevision(build);
         if (revision != null) {
             Result result = build.getResult();
-            String url;
-            try {
-                url = build.getAbsoluteUrl();
-            } catch (IllegalStateException ise) {
-                url = "http://unconfigured-jenkins-location/" + build.getUrl();
-            }
+            String url = DisplayURLProvider.get().getRunURL(build);
             BitbucketBuildStatus status = null;
             if (Result.SUCCESS.equals(result)) {
                 status = new BitbucketBuildStatus(revision, "This commit looks good", "SUCCESSFUL", url, build.getParent().getName(), build.getDisplayName());
