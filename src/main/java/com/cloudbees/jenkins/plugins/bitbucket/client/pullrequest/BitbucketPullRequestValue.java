@@ -32,6 +32,11 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
 public class BitbucketPullRequestValue implements BitbucketPullRequest {
     private BitbucketPullRequestValueRepository source;
     private String id;
+    private String title;
+
+    private Links links;
+
+    private Author author;
 
     public BitbucketPullRequestSource getSource() {
         return source;
@@ -47,6 +52,62 @@ public class BitbucketPullRequestValue implements BitbucketPullRequest {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    @Override
+    public String getTitle() {
+        return title;
+    }
+
+    @Override
+    public String getLink() {
+        return links.html.href;
+    }
+
+    @Override
+    public String getAuthorLogin() {
+        return author.username;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setLinks(Links link) {
+        this.links = link;
+    }
+
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Links {
+        private Html html;
+        public Links() {}
+        // for tests
+        public Links(String link) {
+            html = new Html();
+            html.href = link;
+        }
+        public void setHtml(Html html) {
+            this.html = html;
+        }
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private static class Html {
+            public String href;
+            public Html() {}
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Author {
+        private String username;
+        public Author() {}
+        public Author(String username) {
+            this.username = username;
+        }
     }
 
 }
