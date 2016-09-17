@@ -24,6 +24,7 @@
 package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
 import java.io.IOException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import hudson.security.csrf.CrumbExclusion;
@@ -102,7 +103,7 @@ public class BitbucketSCMSourcePushHookReceiver extends CrumbExclusion implement
             instanceType = BitbucketType.fromString(bitbucketKey);
         }
         if(instanceType == null){
-            LOGGER.info("No bitbucket type found, must be cloud!");
+            LOGGER.log(Level.FINE, "X-Bitbucket-Type header not found. Bitbucket Cloud webhook incoming.");
             instanceType = BitbucketType.CLOUD;
         }
 

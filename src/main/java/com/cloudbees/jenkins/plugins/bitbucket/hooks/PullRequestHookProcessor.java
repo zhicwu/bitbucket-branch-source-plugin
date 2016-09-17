@@ -39,7 +39,6 @@ public class PullRequestHookProcessor extends HookProcessor {
             BitbucketPullRequestEvent pull;
             if (instanceType == BitbucketType.SERVER) {
                 pull = BitbucketServerWebhookPayload.pullRequestEventFromPayload(payload);
-
             } else {
                 pull = BitbucketCloudWebhookPayload.pullRequestEventFromPayload(payload);
             }
