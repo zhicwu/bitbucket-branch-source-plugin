@@ -481,7 +481,6 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     private String putRequest(String path, String content) throws UnsupportedEncodingException {
         PutMethod httppost = new PutMethod(this.baseURL + path);
         httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
-        LOGGER.info(content);
         return doRequest(httppost);
     }
 
