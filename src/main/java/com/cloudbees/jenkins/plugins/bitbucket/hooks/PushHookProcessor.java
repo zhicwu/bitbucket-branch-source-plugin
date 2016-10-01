@@ -36,25 +36,19 @@ public class PushHookProcessor extends HookProcessor {
     @Override
     public void process(String payload, BitbucketType instanceType) {
         if (payload != null) {
-            // TODO: generalize this for BB server
             BitbucketPushEvent push;
-            switch (instanceType)
-            {
-            case SERVER:
+            if (instanceType == BitbucketType.SERVER) {
                 push = BitbucketServerWebhookPayload.pushEventFromPayload(payload);
-                break;
-            case CLOUD:
-            default:
+            } else {
                 push = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
             }
             if (push != null) {
                 String owner = push.getRepository().getOwnerName();
                 String repository = push.getRepository().getRepositoryName();
 
-                LOGGER.info(String.format("Received hook from Bitbucket. Processing push event on %s/%s", owner, repository)); 
+                LOGGER.info(String.format("Received hook from Bitbucket. Processing push event on %s/%s", owner, repository));
                 scmSourceReIndex(owner, repository);
             }
         }
     }
-
 }

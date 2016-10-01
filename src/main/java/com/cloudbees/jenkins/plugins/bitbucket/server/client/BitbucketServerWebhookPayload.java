@@ -35,8 +35,8 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class BitbucketServerWebhookPayload
-{
+public class BitbucketServerWebhookPayload {
+
     private static final Logger LOGGER = Logger.getLogger(BitbucketServerWebhookPayload.class.getName());
 
     @CheckForNull
