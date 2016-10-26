@@ -421,12 +421,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         
         if (proxy.type() != Proxy.Type.DIRECT) {
             final InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
-            LOGGER.info("Jenkins proxy: " + proxy.address());
+            LOGGER.fine("Jenkins proxy: " + proxy.address());
             client.getHostConfiguration().setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
             String username = proxyConfig.getUserName();
             String password = proxyConfig.getPassword();
             if (username != null && !"".equals(username.trim())) {
-                LOGGER.info("Using proxy authentication (user=" + username + ")");
+                LOGGER.fine("Using proxy authentication (user=" + username + ")");
                 client.getState().setProxyCredentials(AuthScope.ANY,
                     new UsernamePasswordCredentials(username, password));
             }
