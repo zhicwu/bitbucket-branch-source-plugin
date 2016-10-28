@@ -34,6 +34,9 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
+import jenkins.scm.api.SCMHeadCategory;
+import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
+import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -265,7 +268,7 @@ public class BitbucketSCMSource extends SCMSource {
     }
 
     @Override
-    protected void retrieve(SCMHeadObserver observer, final TaskListener listener) throws IOException,
+    protected void retrieve(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener) throws IOException,
             InterruptedException {
 
         StandardUsernamePasswordCredentials scanCredentials = getScanCredentials();
@@ -276,12 +279,12 @@ public class BitbucketSCMSource extends SCMSource {
         }
 
         // Search branches
-        retrieveBranches(observer, listener);
+        retrieveBranches(criteria, observer, listener);
         // Search pull requests
-        retrievePullRequests(observer, listener);
+        retrievePullRequests(criteria, observer, listener);
     }
 
-    private void retrievePullRequests(SCMHeadObserver observer, final TaskListener listener) throws IOException {
+    private void retrievePullRequests(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener) throws IOException {
         String fullName = repoOwner + "/" + repository;
         listener.getLogger().println("Looking up " + fullName + " for pull requests");
 
@@ -296,7 +299,7 @@ public class BitbucketSCMSource extends SCMSource {
                 // Resolve full hash. See https://bitbucket.org/site/master/issues/11415/pull-request-api-should-return-full-commit
                 String hash = bitbucket.resolveSourceFullHash(pull);
                 if (hash != null) {
-                    observe(observer, listener,
+                    observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
                             pull.getSource().getRepository().getRepositoryName(),
                             pull.getSource().getBranch().getName(),
@@ -314,7 +317,8 @@ public class BitbucketSCMSource extends SCMSource {
         }
     }
 
-    private void retrieveBranches(@NonNull final SCMHeadObserver observer, @NonNull TaskListener listener)
+    private void retrieveBranches(SCMSourceCriteria criteria, @NonNull final SCMHeadObserver observer,
+                                  @NonNull TaskListener listener)
             throws IOException, InterruptedException {
         String fullName = repoOwner + "/" + repository;
         listener.getLogger().println("Looking up " + fullName + " for branches");
@@ -323,19 +327,19 @@ public class BitbucketSCMSource extends SCMSource {
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch branch : branches) {
             listener.getLogger().println("Checking branch " + branch.getName() + " from " + fullName);
-            observe(observer, listener, repoOwner, repository, branch.getName(),
+            observe(criteria, observer, listener, repoOwner, repository, branch.getName(),
                     branch.getRawNode(), null);
         }
     }
 
-    private void observe(SCMHeadObserver observer, final TaskListener listener,
-            final String owner, final String repositoryName, 
-            final String branchName, final String hash, BitbucketPullRequest pr) throws IOException {
+    private void observe(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener,
+                         final String owner, final String repositoryName,
+                         final String branchName, final String hash, BitbucketPullRequest pr) throws IOException {
         if (isExcluded(branchName)) {
             return;
         }
         final BitbucketApi bitbucket = getBitbucketConnector().create(owner, repositoryName, getScanCredentials());
-        SCMSourceCriteria branchCriteria = getCriteria();
+        SCMSourceCriteria branchCriteria = criteria;
         if (branchCriteria != null) {
             SCMSourceCriteria.Probe probe = new SCMSourceCriteria.Probe() {
 
@@ -368,7 +372,9 @@ public class BitbucketSCMSource extends SCMSource {
             }
         }
         SCMRevision revision;
-        SCMHeadWithOwnerAndRepo head = new SCMHeadWithOwnerAndRepo(owner, repositoryName, branchName, pr);
+        SCMHead head = pr != null
+                ? new PullRequestSCMHead(owner, repositoryName, branchName, pr)
+                : new BranchSCMHead(owner, repositoryName, branchName);
         if (getRepositoryType() == RepositoryType.MERCURIAL) {
             revision = new MercurialRevision(head, hash);
         } else {
@@ -377,9 +383,11 @@ public class BitbucketSCMSource extends SCMSource {
         observer.observe(head, revision);
     }
 
+
+
     @Override
     protected SCMRevision retrieve(SCMHead head, TaskListener listener) throws IOException, InterruptedException {
-        SCMHeadWithOwnerAndRepo bbHead = (SCMHeadWithOwnerAndRepo) head;
+        BitbucketSCMHead bbHead = (BitbucketSCMHead) head;
         BitbucketApi bitbucket = getBitbucketConnector().create(bbHead.getRepoOwner(), bbHead.getRepoName(), getScanCredentials());
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch b : branches) {
@@ -405,8 +413,8 @@ public class BitbucketSCMSource extends SCMSource {
 
     @Override
     public SCM build(SCMHead head, SCMRevision revision) {
-        if (head instanceof SCMHeadWithOwnerAndRepo) { // Defensive, it must be always true
-            SCMHeadWithOwnerAndRepo h = (SCMHeadWithOwnerAndRepo) head;
+        if (head instanceof BitbucketSCMHead) { // Defensive, it must be always true
+            BitbucketSCMHead h = (BitbucketSCMHead) head;
             if (getRepositoryType() == RepositoryType.MERCURIAL) {
                 MercurialSCM scm = new MercurialSCM(getRemote(h.getRepoOwner(), h.getRepoName()));
                 // If no revision specified the branch name will be used as revision
@@ -428,7 +436,7 @@ public class BitbucketSCMSource extends SCMSource {
         throw new IllegalArgumentException("An SCMHeadWithOwnerAndRepo required as parameter");
     }
 
-    protected List<UserRemoteConfig> getGitRemoteConfigs(SCMHeadWithOwnerAndRepo head) {
+    protected List<UserRemoteConfig> getGitRemoteConfigs(BitbucketSCMHead head) {
         List<UserRemoteConfig> result = new ArrayList<UserRemoteConfig>();
         String remote = getRemote(head.getRepoOwner(), head.getRepoName());
         result.add(new UserRemoteConfig(remote, getRemoteName(), "+refs/heads/" + head.getBranchName(), getCheckoutEffectiveCredentials()));
@@ -568,6 +576,15 @@ public class BitbucketSCMSource extends SCMSource {
             return result;
         }
 
+        @NonNull
+        @Override
+        protected SCMHeadCategory[] createCategories() {
+            return new SCMHeadCategory[]{
+                    new UncategorizedSCMHeadCategory(Messages._BitbucketSCMSource_UncategorizedSCMHeadCategory_DisplayName()),
+                    new ChangeRequestSCMHeadCategory(Messages._BitbucketSCMSource_ChangeRequestSCMHeadCategory_DisplayName())
+                    // TODO add support for tags and maybe feature branch identification
+            };
+        }
     }
 
     public static class MercurialRevision extends SCMRevision {

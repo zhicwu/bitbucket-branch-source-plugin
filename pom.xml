@@ -60,12 +60,12 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>scm-api</artifactId>
-            <version>1.2</version>
+            <version>1.4-SNAPSHOT</version>
         </dependency>
         <dependency><!-- Remove once DisplayNameItemListener is extracted -->
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>branch-api</artifactId>
-            <version>1.10.2</version>
+            <version>1.12-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>

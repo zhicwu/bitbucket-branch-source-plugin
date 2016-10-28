@@ -23,6 +23,10 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
+import edu.umd.cs.findbugs.annotations.NonNull;
+import java.io.ObjectStreamException;
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -42,7 +46,9 @@ import jenkins.scm.api.SCMHead;
  * This information is required in this plugin since {@link BitbucketSCMSource} is processing pull requests
  * and they are managed as separate repositories in Bitbucket without any reference to them in the destination
  * repository.
+ * @deprecated use {@link PullRequestSCMHead} or {@link BranchSCMHead}
  */
+@Deprecated
 public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private static final long serialVersionUID = 1L;
@@ -51,62 +57,46 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private final String repoName;
 
-    private PullRequestAction metadata = null;
+    private transient PullRequestAction metadata;
 
-    private static final String PR_BRANCH_PREFIX = "PR-";
-
-    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName, BitbucketPullRequest pr) {
+    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
         super(branchName);
         this.repoOwner = repoOwner;
         this.repoName = repoName;
-        if (pr != null) {
-            this.metadata = new PullRequestAction(pr);
-        }
     }
 
-    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
-        this(repoOwner, repoName, branchName, null);
-    }
-
-    public String getRepoOwner() {
-        return repoOwner;
-    }
-
-    public String getRepoName() {
-        return repoName;
-    }
-
-    /**
-     * @return the original branch name without the "PR-owner-" part.
-     */
-    public String getBranchName() {
-        return super.getName();
-    }
-
-    /**
-     * Returns the prettified branch name by adding "PR-[ID]" if the branch is coming from a PR.
-     * Use {@link #getBranchName()} to get the real branch name.
-     */
-    @Override
-    public String getName() {
-        return metadata != null ? PR_BRANCH_PREFIX + metadata.getId() : getBranchName();
-    }
-
-    @CheckForNull
-    public Integer getPullRequestId() {
+    private SCMHead readResolve() throws ObjectStreamException {
         if (metadata != null) {
-            return Integer.parseInt(metadata.getId());
-        } else {
-            return null;
+            return new PullRequestSCMHead(repoOwner, repoName, super.getName(), new BitbucketPullRequest() {
+                @Override
+                public BitbucketPullRequestSource getSource() {
+                    return null;
+                }
+
+                @NonNull
+                @Override
+                public String getId() {
+                    return metadata.getId();
+                }
+
+                @Override
+                public String getTitle() {
+                    return metadata.getTitle();
+                }
+
+                @Override
+                public String getLink() {
+                    URL url = metadata.getURL();
+                    return url == null ? null : url.toString();
+                }
+
+                @Override
+                public String getAuthorLogin() {
+                    return metadata.getAuthor();
+                }
+            });
         }
+        return new BranchSCMHead(repoOwner, repoName, getName());
     }
 
-    @Override
-    public List<? extends Action> getAllActions() {
-        List<Action> actions = new LinkedList<Action>(super.getAllActions());
-        if (metadata != null) {
-            actions.add(metadata);
-        }
-        return actions;
-    }
 }

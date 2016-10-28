@@ -80,7 +80,6 @@ public class CustomComputedFolderItemListener extends ItemListener {
         }
         RepoMatch r = Sniffer.matchRepo(item);
         if (r != null) {
-            applier.applyRepo(r);
         }
     }
 
@@ -120,36 +119,6 @@ public class CustomComputedFolderItemListener extends ItemListener {
                 } finally {
                     bc.abort();
                     UPDATING.get().remove(f.folder);
-                }
-            }
-        }
-
-        public void applyRepo(RepoMatch r) {
-            if (UPDATING.get().add(r.repo)) {
-                BulkChange bc = new BulkChange(r.repo);
-                try {
-                    if (r.repo.getView("Branches") == null && r.repo.getView("All") instanceof AllView) {
-                        // create initial views
-                        ListView bv = new ListView("Branches");
-                        bv.getJobFilters().add(new BranchJobFilter());
-
-                        ListView pv = new ListView("Pull Requests");
-                        pv.getJobFilters().add(new PullRequestJobFilter());
-
-                        try {
-                            r.repo.addView(bv);
-                            r.repo.addView(pv);
-                            r.repo.deleteView(r.repo.getView("All"));
-                            r.repo.setPrimaryView(bv);
-                            bc.commit();
-                        } catch (IOException e) {
-                            LOGGER.log(Level.INFO, "Can not set the repo/PR views. Skipping.");
-                            LOGGER.log(Level.FINE, "StackTrace:", e);
-                        }
-                    }
-                } finally {
-                    bc.abort();
-                    UPDATING.get().remove(r.repo);
                 }
             }
         }

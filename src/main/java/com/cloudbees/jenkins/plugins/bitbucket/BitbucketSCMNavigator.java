@@ -29,6 +29,8 @@ import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
 
+import jenkins.scm.api.SCMSourceCategory;
+import jenkins.scm.impl.UncategorizedSCMSourceCategory;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -251,5 +253,12 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             return result;
         }
 
+        @NonNull
+        @Override
+        protected SCMSourceCategory[] createCategories() {
+            return new SCMSourceCategory[]{
+                    new UncategorizedSCMSourceCategory(Messages._BitbucketSCMNavigator_UncategorizedSCMSourceCategory_DisplayName())
+            };
+        }
     }
 }

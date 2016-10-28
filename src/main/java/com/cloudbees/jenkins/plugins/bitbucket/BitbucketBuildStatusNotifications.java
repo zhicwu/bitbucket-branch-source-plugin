@@ -123,8 +123,8 @@ public class BitbucketBuildStatusNotifications {
         Job<?, ?> job = build.getParent();
         StandardUsernamePasswordCredentials creds = source.getScanCredentials();
         SCMHead _head = SCMHead.HeadByItem.findHead(job);
-        if (_head instanceof SCMHeadWithOwnerAndRepo) {
-            SCMHeadWithOwnerAndRepo head = (SCMHeadWithOwnerAndRepo) _head;
+        if (_head instanceof BitbucketSCMHead) {
+            BitbucketSCMHead head = (BitbucketSCMHead) _head;
             return new BitbucketApiConnector(source.getBitbucketServerUrl()).create(head.getRepoOwner(), head.getRepoName(), creds);
         }
         return null;
