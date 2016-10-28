@@ -97,19 +97,6 @@ public class CustomComputedFolderItemListener extends ItemListener {
                     if (team != null) {
                         try {
                             f.folder.setDisplayName(team.getDisplayName());
-                            if (f.folder.getView("Repositories") == null && f.folder.getView("All") instanceof AllView) {
-                                // need to set the default view
-                                ListView lv = new ListView("Repositories");
-                                lv.getColumns().replaceBy(asList(
-                                    new StatusColumn(),
-                                    new WeatherColumn(),
-                                    new CustomNameJobColumn(Messages.class, Messages._ListViewColumn_Repository())
-                                ));
-                                lv.setIncludeRegex(".*");   // show all
-                                f.folder.addView(lv);
-                                f.folder.deleteView(f.folder.getView("All"));
-                                f.folder.setPrimaryView(lv);
-                            }
                             bc.commit();
                         } catch (IOException e) {
                             LOGGER.log(Level.INFO, "Can not set the Team/Project display name automatically. Skipping.");
