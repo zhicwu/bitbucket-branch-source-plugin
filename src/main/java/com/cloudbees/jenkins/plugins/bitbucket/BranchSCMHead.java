@@ -23,44 +23,19 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
-import edu.umd.cs.findbugs.annotations.NonNull;
-import java.io.ObjectStreamException;
-import java.net.URL;
 import jenkins.scm.api.SCMHead;
 
 /**
  * {@link SCMHead} for a BitBucket branch.
  * @since FIXME
  */
-public class BranchSCMHead extends SCMHead implements BitbucketSCMHead {
+public class BranchSCMHead extends SCMHead {
 
     private static final long serialVersionUID = 1L;
 
-    private final String repoOwner;
 
-    private final String repoName;
-
-    public BranchSCMHead(String repoOwner, String repoName, String branchName) {
+    public BranchSCMHead(String branchName) {
         super(branchName);
-        this.repoOwner = repoOwner;
-        this.repoName = repoName;
-    }
-
-    @Override
-    public String getRepoOwner() {
-        return repoOwner;
-    }
-
-    @Override
-    public String getRepoName() {
-        return repoName;
-    }
-
-    @Override
-    public String getBranchName() {
-        return getName();
     }
 
 }

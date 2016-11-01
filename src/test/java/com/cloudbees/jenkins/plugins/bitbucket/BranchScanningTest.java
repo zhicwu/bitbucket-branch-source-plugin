@@ -75,7 +75,7 @@ public class BranchScanningTest {
     @Test
     public void remoteConfigsTest() {
         BitbucketSCMSource source = getBitbucketSCMSourceMock(RepositoryType.GIT);
-        List<UserRemoteConfig> remoteConfigs = source.getGitRemoteConfigs(new BranchSCMHead("amuniz", "test-repos", "branch1"));
+        List<UserRemoteConfig> remoteConfigs = source.getGitRemoteConfigs(new BranchSCMHead("branch1"));
         assertEquals(1, remoteConfigs.size());
         assertEquals("+refs/heads/branch1", remoteConfigs.get(0).getRefspec());
     }
@@ -84,7 +84,7 @@ public class BranchScanningTest {
     public void retrieveTest() throws IOException, InterruptedException {
         BitbucketSCMSource source = getBitbucketSCMSourceMock(RepositoryType.GIT);
 
-        BranchSCMHead head = new BranchSCMHead(repoOwner, repoName, branchName);
+        BranchSCMHead head = new BranchSCMHead(branchName);
         SCMRevision rev = source.retrieve(head, BitbucketClientMockUtils.getTaskListenerMock());
 
         // Last revision on branch1 must be returned
@@ -96,7 +96,7 @@ public class BranchScanningTest {
     public void scanTest() throws IOException, InterruptedException {
         BitbucketSCMSource source = getBitbucketSCMSourceMock(RepositoryType.GIT);
         SCMHeadObserverImpl observer = new SCMHeadObserverImpl();
-        source.retrieve(null, observer, BitbucketClientMockUtils.getTaskListenerMock());
+        source.fetch(observer, BitbucketClientMockUtils.getTaskListenerMock());
 
         // Only branch1 must be observed
         assertEquals(1, observer.getBranches().size());
@@ -107,7 +107,7 @@ public class BranchScanningTest {
     public void scanTestPullRequests() throws IOException, InterruptedException {
         BitbucketSCMSource source = getBitbucketSCMSourceMock(RepositoryType.GIT, true);
         SCMHeadObserverImpl observer = new SCMHeadObserverImpl();
-        source.retrieve(null, observer, BitbucketClientMockUtils.getTaskListenerMock());
+        source.fetch(observer, BitbucketClientMockUtils.getTaskListenerMock());
 
         // Only branch1 and my-feature-branch PR must be observed
         assertEquals(2, observer.getBranches().size());
@@ -129,7 +129,7 @@ public class BranchScanningTest {
 
     private SCM scmBuild(RepositoryType type) {
         BitbucketSCMSource source = getBitbucketSCMSourceMock(type);
-        return source.build(new BranchSCMHead("amuniz", "test-repos", "branch1"));
+        return source.build(new BranchSCMHead("branch1"));
     }
 
     private BitbucketSCMSource getBitbucketSCMSourceMock(RepositoryType type, boolean includePullRequests) {

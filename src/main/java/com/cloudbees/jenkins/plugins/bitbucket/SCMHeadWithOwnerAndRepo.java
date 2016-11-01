@@ -27,13 +27,9 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.ObjectStreamException;
 import java.net.URL;
-import java.util.LinkedList;
-import java.util.List;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import hudson.model.Action;
 import jenkins.scm.api.SCMHead;
 
 /**
@@ -65,7 +61,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         this.repoName = repoName;
     }
 
-    private SCMHead readResolve() throws ObjectStreamException {
+    private Object readResolve() throws ObjectStreamException {
         if (metadata != null) {
             return new PullRequestSCMHead(repoOwner, repoName, super.getName(), new BitbucketPullRequest() {
                 @Override
@@ -96,7 +92,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                 }
             });
         }
-        return new BranchSCMHead(repoOwner, repoName, getName());
+        return new BranchSCMHead(getName());
     }
 
 }

@@ -78,9 +78,6 @@ public class CustomComputedFolderItemListener extends ItemListener {
         if (f != null && f.folder.getDisplayNameOrNull() == null) {
             applier.applyOrg(f);
         }
-        RepoMatch r = Sniffer.matchRepo(item);
-        if (r != null) {
-        }
     }
 
     @Extension
