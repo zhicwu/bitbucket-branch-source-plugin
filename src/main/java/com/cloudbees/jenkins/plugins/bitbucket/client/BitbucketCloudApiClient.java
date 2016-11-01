@@ -35,10 +35,12 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.HttpMethod;
+import org.apache.commons.httpclient.HttpState;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
@@ -89,10 +91,10 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private static final String V2_TEAMS_API_BASE_URL = "https://bitbucket.org/api/2.0/teams/";
     private static final int MAX_PAGES = 100;
     private HttpClient client;
-    private static MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
-    private String owner;
-    private String repositoryName;
-    private UsernamePasswordCredentials credentials;
+    private static final MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
+    private final String owner;
+    private final String repositoryName;
+    private final UsernamePasswordCredentials credentials;
 
     static {
         connectionManager.getParams().setDefaultMaxConnectionsPerHost(20);
@@ -102,6 +104,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     public BitbucketCloudApiClient(String username, String password, String owner, String repositoryName) {
         if (!StringUtils.isBlank(username) && !StringUtils.isBlank(password)) {
             this.credentials = new UsernamePasswordCredentials(username, password);
+        } else {
+            this.credentials = null;
         }
         this.owner = owner;
         this.repositoryName = repositoryName;
@@ -110,6 +114,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     public BitbucketCloudApiClient(String owner, String repositoryName, StandardUsernamePasswordCredentials creds) {
         if (creds != null) {
             this.credentials = new UsernamePasswordCredentials(creds.getUsername(), Secret.toString(creds.getPassword()));
+        } else {
+            this.credentials = null;
         }
         this.owner = owner;
         this.repositoryName = repositoryName;
@@ -394,20 +400,22 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return getRepositories(null);
     }
 
-    private synchronized HttpClient getHttpClient(String host) {
+    private synchronized HttpClient getHttpClient() {
         if (this.client == null) {
             HttpClient client = new HttpClient(connectionManager);
             client.getParams().setConnectionManagerTimeout(10 * 1000);
             client.getParams().setSoTimeout(60 * 1000);
 
+            client.getState().setCredentials(AuthScope.ANY, credentials);
+            client.getParams().setAuthenticationPreemptive(true);
+
             this.client = client;
         }
 
-        setClientProxyParams(host, this.client);
         return this.client;
     }
 
-    private static void setClientProxyParams(String host, HttpClient client) {
+    private static int executeMethod(HttpClient client, HttpMethod method) throws IOException {
         Jenkins jenkins = Jenkins.getInstance();
         ProxyConfiguration proxyConfig = null;
         if (jenkins != null) {
@@ -416,32 +424,39 @@ public class BitbucketCloudApiClient implements BitbucketApi {
 
         Proxy proxy = Proxy.NO_PROXY;
         if (proxyConfig != null) {
-            proxy = proxyConfig.createProxy(host);
+            proxy = proxyConfig.createProxy(getMethodHost(method));
         }
-        
+
         if (proxy.type() != Proxy.Type.DIRECT) {
             final InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
             LOGGER.fine("Jenkins proxy: " + proxy.address());
-            client.getHostConfiguration().setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
+
+            final HostConfiguration hc = new HostConfiguration(client.getHostConfiguration());
+            hc.setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
+
             String username = proxyConfig.getUserName();
             String password = proxyConfig.getPassword();
             if (username != null && !"".equals(username.trim())) {
                 LOGGER.fine("Using proxy authentication (user=" + username + ")");
-                client.getState().setProxyCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(username, password));
+
+                final HttpState state = new HttpState();
+                state.setProxyCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+                return client.executeMethod(hc, method, state);
+            } else {
+                return client.executeMethod(hc, method);
             }
+        } else {
+            return client.executeMethod(method);
         }
     }
 
-    private synchronized String getRequest(String path) {
+    private String getRequest(String path) {
         GetMethod httpget = new GetMethod(path);
-        HttpClient client = getHttpClient(getMethodHost(httpget));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
+        HttpClient client = getHttpClient();
         String response = null;
         InputStream responseBodyAsStream = null;
         try {
-            client.executeMethod(httpget);
+            executeMethod(client, httpget);
             responseBodyAsStream = httpget.getResponseBodyAsStream();
             response = IOUtils.toString(responseBodyAsStream, "UTF-8");
             if (httpget.getStatusCode() != HttpStatus.SC_OK) {
@@ -463,13 +478,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return response;
     }
 
-    private synchronized int getRequestStatus(String path) {
+    private int getRequestStatus(String path) {
         GetMethod httpget = new GetMethod(path);
-        HttpClient client = getHttpClient(getMethodHost(httpget));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
+        HttpClient client = getHttpClient();
         try {
-            client.executeMethod(httpget);
+            executeMethod(client, httpget);
             return httpget.getStatusCode();
         } catch (HttpException e) {
             LOGGER.log(Level.SEVERE, "Communication error", e);
@@ -489,13 +502,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private synchronized void deleteRequest(String path) {
+    private void deleteRequest(String path) {
         DeleteMethod httppost = new DeleteMethod(path);
-        HttpClient client = getHttpClient(getMethodHost(httppost));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
+        HttpClient client = getHttpClient();
         try {
-            client.executeMethod(httppost);
+            executeMethod(client, httppost);
             if (httppost.getStatusCode() != HttpStatus.SC_NO_CONTENT) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText());
             }
@@ -506,14 +517,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private synchronized String postRequest(PostMethod httppost) throws UnsupportedEncodingException {
-        HttpClient client = getHttpClient(getMethodHost(httppost));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
+    private String postRequest(PostMethod httppost) throws UnsupportedEncodingException {
+        HttpClient client = getHttpClient();
         String response = "";
         InputStream responseBodyAsStream = null;
         try {
-            client.executeMethod(httppost);
+            executeMethod(client, httppost);
             responseBodyAsStream = httppost.getResponseBodyAsStream();
             response = IOUtils.toString(responseBodyAsStream, "UTF-8");
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
