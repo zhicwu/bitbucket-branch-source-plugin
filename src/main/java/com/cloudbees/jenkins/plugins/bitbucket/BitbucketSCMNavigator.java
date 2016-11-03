@@ -182,6 +182,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             repositories = bitbucket.getRepositories(UserRoleInRepository.OWNER);
         }
         for (BitbucketRepository repo : repositories) {
+            checkInterrupt();
             add(listener, observer, repo);
         }
     }
@@ -193,9 +194,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             return;
         }
         listener.getLogger().format("Proposing %s%n", name);
-        if (Thread.interrupted()) {
-            throw new InterruptedException();
-        }
+        checkInterrupt();
         SCMSourceObserver.ProjectObserver projectObserver = observer.observe(name);
         BitbucketSCMSource scmSource = new BitbucketSCMSource(null, repoOwner, name);
         scmSource.setBitbucketConnector(getBitbucketConnector());

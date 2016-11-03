@@ -288,7 +288,8 @@ public class BitbucketSCMSource extends SCMSource {
         retrievePullRequests(criteria, observer, listener);
     }
 
-    private void retrievePullRequests(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener) throws IOException {
+    private void retrievePullRequests(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener)
+            throws IOException, InterruptedException {
         String fullName = repoOwner + "/" + repository;
         listener.getLogger().println("Looking up " + fullName + " for pull requests");
 
@@ -296,6 +297,7 @@ public class BitbucketSCMSource extends SCMSource {
         if (bitbucket.isPrivate()) {
             List<? extends BitbucketPullRequest> pulls = bitbucket.getPullRequests();
             for (final BitbucketPullRequest pull : pulls) {
+                checkInterrupt();
                 listener.getLogger().println(
                         "Checking PR from " + pull.getSource().getRepository().getFullName() + " and branch "
                                 + pull.getSource().getBranch().getName());
@@ -330,6 +332,7 @@ public class BitbucketSCMSource extends SCMSource {
         final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch branch : branches) {
+            checkInterrupt();
             listener.getLogger().println("Checking branch " + branch.getName() + " from " + fullName);
             observe(criteria, observer, listener, repoOwner, repository, branch.getName(),
                     branch.getRawNode(), null);
