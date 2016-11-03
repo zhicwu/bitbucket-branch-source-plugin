@@ -23,15 +23,23 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.plugins.credentials.common.StandardCredentials;
+import hudson.console.HyperlinkNote;
+import hudson.model.Action;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
 
+import jenkins.scm.api.SCMNavigatorOwner;
 import jenkins.scm.api.SCMSourceCategory;
 import jenkins.scm.impl.UncategorizedSCMSourceCategory;
 import org.apache.commons.lang.StringUtils;
+import org.jenkins.ui.icon.Icon;
+import org.jenkins.ui.icon.IconSet;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -200,7 +208,43 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         projectObserver.complete();
     }
 
-    @Extension 
+    @NonNull
+    @Override
+    public Map<Class<? extends Action>, Action> retrieveActions(@NonNull SCMNavigatorOwner owner,
+                                                                @NonNull TaskListener listener)
+            throws IOException, InterruptedException {
+        listener.getLogger().printf("Looking up team details of %s...%n", getRepoOwner());
+        Map<Class<? extends Action>, Action> result = new HashMap<>();
+        StandardUsernamePasswordCredentials credentials =
+                getBitbucketConnector().lookupCredentials(owner,
+                        credentialsId, StandardUsernamePasswordCredentials.class);
+
+        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
+        if (credentials == null) {
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n",
+                    serverUrl);
+        } else {
+            listener.getLogger().format("Connecting to %s using %s%n",
+                    serverUrl,
+                    CredentialsNameProvider.name(credentials));
+        }
+        BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, credentials);
+        BitbucketTeam team = bitbucket.getTeam();
+        if (team != null) {
+            BitbucketTeamMetadataAction metadataAction = new BitbucketTeamMetadataAction(team);
+            result.put(BitbucketTeamMetadataAction.class, metadataAction);
+            String teamUrl = StringUtils.defaultIfBlank(metadataAction.getTeamUrl(), serverUrl + "/" + team.getName());
+            result.put(BitbucketLink.class, new BitbucketLink("icon-bitbucket-logo", teamUrl));
+            listener.getLogger().printf("Team URL: %s%n", HyperlinkNote.encodeTo(teamUrl, team.getName()));
+        } else {
+            String teamUrl = serverUrl + "/" + repoOwner;
+            result.put(BitbucketLink.class, new BitbucketLink("icon-bitbucket-logo", teamUrl));
+            listener.getLogger().println("Could not resolve team details");
+        }
+        return result;
+    }
+
+    @Extension
     public static class DescriptorImpl extends SCMNavigatorDescriptor {
 
         public static final String ANONYMOUS = BitbucketSCMSource.DescriptorImpl.ANONYMOUS;
@@ -219,6 +263,11 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         @Override
         public String getIconFilePathPattern() {
             return "plugin/cloudbees-bitbucket-branch-source/images/:size/bitbucket-scmnavigator.png";
+        }
+
+        @Override
+        public String getIconClassName() {
+            return "icon-bitbucket-scmnavigator";
         }
 
         @Override
@@ -259,6 +308,110 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             return new SCMSourceCategory[]{
                     new UncategorizedSCMSourceCategory(Messages._BitbucketSCMNavigator_UncategorizedSCMSourceCategory_DisplayName())
             };
+        }
+
+        static {
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-scm-navigator icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-scmnavigator.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-scm-navigator icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-scmnavigator.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-scm-navigator icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-scmnavigator.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-scm-navigator icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/48x48/bitbucket-scmnavigator.png",
+                            Icon.ICON_XLARGE_STYLE));
+
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-logo icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-logo.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-logo icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-logo.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-logo icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-logo.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-logo icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/48x48/bitbucket-logo.png",
+                            Icon.ICON_XLARGE_STYLE));
+
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-repository.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-repository.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-repository.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/48x48/bitbucket-repository.png",
+                            Icon.ICON_XLARGE_STYLE));
+
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-git icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-repository-git.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-git icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-repository-git.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-git icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-repository-git.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-git icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/48x48/bitbucket-repository-git.png",
+                            Icon.ICON_XLARGE_STYLE));
+
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-hg icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-repository-hg.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-hg icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-repository-hg.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-hg icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-repository-hg.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-repo-hg icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/48x48/bitbucket-repository-hg.png",
+                            Icon.ICON_XLARGE_STYLE));
+
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-branch icon-sm",
+                            "plugin/cloudbees-bitbucket-branch-source/images/16x16/bitbucket-branch.png",
+                            Icon.ICON_SMALL_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-branch icon-md",
+                            "plugin/cloudbees-bitbucket-branch-source/images/24x24/bitbucket-branch.png",
+                            Icon.ICON_MEDIUM_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-branch icon-lg",
+                            "plugin/cloudbees-bitbucket-branch-source/images/32x32/bitbucket-branch.png",
+                            Icon.ICON_LARGE_STYLE));
+            IconSet.icons.addIcon(
+                    new Icon("icon-bitbucket-branch icon-xlg",
+                            "plugin/cloudbees-bitbucket-branch-sourcee/images/48x48/bitbucket-branch.png",
+                            Icon.ICON_XLARGE_STYLE));
         }
     }
 }

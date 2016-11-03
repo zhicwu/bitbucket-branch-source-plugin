@@ -37,6 +37,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Action;
 import hudson.model.TaskListener;
 import hudson.plugins.git.BranchSpec;
 import hudson.plugins.git.GitSCM;
@@ -56,7 +57,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -571,6 +574,44 @@ public class BitbucketSCMSource extends SCMSource {
         } else {
             return checkoutCredentialsId;
         }
+    }
+
+    @NonNull
+    @Override
+    protected Map<Class<? extends Action>, Action> retrieveActions(@NonNull TaskListener listener)
+            throws IOException, InterruptedException {
+        Map<Class<? extends Action>, Action> result = new HashMap<>();
+        final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+        BitbucketRepository r = bitbucket.getRepository();
+        if (r != null) {
+            result.put(BitbucketRepoMetadataAction.class, new BitbucketRepoMetadataAction(r));
+        }
+        String serverUrl =
+                StringUtils
+                        .removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
+        result.put(BitbucketLink.class,
+                new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
+        return result;
+    }
+
+    @NonNull
+    @Override
+    protected Map<Class<? extends Action>, Action> retrieveActions(@NonNull SCMHead head,
+                                                                   @NonNull TaskListener listener)
+            throws IOException, InterruptedException {
+        Map<Class<? extends Action>, Action> result = new HashMap<>();
+        String serverUrl =
+                StringUtils.removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
+        String branchUrl;
+        if (head instanceof PullRequestSCMHead) {
+            PullRequestSCMHead pr = (PullRequestSCMHead) head;
+            branchUrl = pr.getRepoOwner() + "/" + pr.getRepository() + "/branch/" + pr.getBranchName();
+        } else {
+            branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
+        }
+        result.put(BitbucketLink.class,
+                new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
+        return result;
     }
 
     @Extension
