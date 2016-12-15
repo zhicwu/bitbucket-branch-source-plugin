@@ -23,19 +23,21 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.plugins.credentials.common.StandardCredentials;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import hudson.console.HyperlinkNote;
 import hudson.model.Action;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.CheckForNull;
 
+import jenkins.scm.api.SCMNavigatorEvent;
 import jenkins.scm.api.SCMNavigatorOwner;
 import jenkins.scm.api.SCMSourceCategory;
+import jenkins.scm.api.metadata.ObjectMetadataAction;
 import jenkins.scm.impl.UncategorizedSCMSourceCategory;
 import org.apache.commons.lang.StringUtils;
 import org.jenkins.ui.icon.Icon;
@@ -130,11 +132,15 @@ public class BitbucketSCMNavigator extends SCMNavigator {
 
     @DataBoundSetter
     public void setBitbucketServerUrl(String url) {
+        if (StringUtils.equals(this.bitbucketServerUrl, url)) {
+            return;
+        }
         this.bitbucketServerUrl = Util.fixEmpty(url);
         if (this.bitbucketServerUrl != null) {
             // Remove a possible trailing slash
             this.bitbucketServerUrl = this.bitbucketServerUrl.replaceAll("/$", "");
         }
+        resetId();
     }
 
     @CheckForNull
@@ -153,6 +159,12 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         return bitbucketConnector;
     }
 
+    @NonNull
+    @Override
+    protected String id() {
+        return bitbucketServerUrl() + "::" + repoOwner;
+    }
+
     @Override
     public void visitSources(SCMSourceObserver observer) throws IOException, InterruptedException {
         TaskListener listener = observer.getListener();
@@ -165,9 +177,9 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                 credentialsId, StandardUsernamePasswordCredentials.class);
 
         if (credentials == null) {
-            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl);
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl());
         } else {
-            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, CredentialsNameProvider.name(credentials));
+            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl(), CredentialsNameProvider.name(credentials));
         }
         List<? extends BitbucketRepository> repositories;
         BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, credentials);
@@ -196,7 +208,11 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         listener.getLogger().format("Proposing %s%n", name);
         checkInterrupt();
         SCMSourceObserver.ProjectObserver projectObserver = observer.observe(name);
-        BitbucketSCMSource scmSource = new BitbucketSCMSource(null, repoOwner, name);
+        BitbucketSCMSource scmSource = new BitbucketSCMSource(
+                getId() + "::" + name,
+                repoOwner,
+                name
+        );
         scmSource.setBitbucketConnector(getBitbucketConnector());
         scmSource.setCredentialsId(credentialsId);
         scmSource.setCheckoutCredentialsId(checkoutCredentialsId);
@@ -207,18 +223,24 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         projectObserver.complete();
     }
 
+    private String bitbucketServerUrl() {
+        return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
+    }
+
     @NonNull
     @Override
-    public Map<Class<? extends Action>, Action> retrieveActions(@NonNull SCMNavigatorOwner owner,
+    public List<Action> retrieveActions(@NonNull SCMNavigatorOwner owner,
+                                        @CheckForNull SCMNavigatorEvent event,
                                                                 @NonNull TaskListener listener)
             throws IOException, InterruptedException {
+        // TODO when we have support for trusted events, use the details from event if event was from trusted source
         listener.getLogger().printf("Looking up team details of %s...%n", getRepoOwner());
-        Map<Class<? extends Action>, Action> result = new HashMap<>();
+        List<Action> result = new ArrayList<>();
         StandardUsernamePasswordCredentials credentials =
                 getBitbucketConnector().lookupCredentials(owner,
                         credentialsId, StandardUsernamePasswordCredentials.class);
 
-        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
+        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
         if (credentials == null) {
             listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n",
                     serverUrl);
@@ -230,17 +252,36 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, credentials);
         BitbucketTeam team = bitbucket.getTeam();
         if (team != null) {
-            BitbucketTeamMetadataAction metadataAction = new BitbucketTeamMetadataAction(team);
-            result.put(BitbucketTeamMetadataAction.class, metadataAction);
-            String teamUrl = StringUtils.defaultIfBlank(metadataAction.getTeamUrl(), serverUrl + "/" + team.getName());
-            result.put(BitbucketLink.class, new BitbucketLink("icon-bitbucket-logo", teamUrl));
-            listener.getLogger().printf("Team URL: %s%n", HyperlinkNote.encodeTo(teamUrl, team.getName()));
+            String teamUrl =
+                    StringUtils.defaultIfBlank(getLink(team.getLinks(), "html"), serverUrl + "/" + team.getName());
+            String teamDisplayName = StringUtils.defaultIfBlank(team.getDisplayName(), team.getName());
+            result.add(new ObjectMetadataAction(
+                    teamDisplayName,
+                    null,
+                    teamUrl
+            ));
+            result.add(new BitbucketTeamMetadataAction(getLink(team.getLinks(), "avatar")));
+            result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
+            listener.getLogger().printf("Team: %s%n", HyperlinkNote.encodeTo(teamUrl, teamDisplayName));
         } else {
             String teamUrl = serverUrl + "/" + repoOwner;
-            result.put(BitbucketLink.class, new BitbucketLink("icon-bitbucket-logo", teamUrl));
+            result.add(new ObjectMetadataAction(
+                    repoOwner,
+                    null,
+                    teamUrl
+            ));
+            result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
             listener.getLogger().println("Could not resolve team details");
         }
         return result;
+    }
+
+    private static String getLink(Map<String, BitbucketHref> links, String name) {
+        if (links == null) {
+            return null;
+        }
+        BitbucketHref href = links.get(name);
+        return href == null ? null : href.getHref();
     }
 
     @Extension

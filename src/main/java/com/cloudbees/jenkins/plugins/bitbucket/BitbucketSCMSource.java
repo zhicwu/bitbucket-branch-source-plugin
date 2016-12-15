@@ -28,6 +28,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
@@ -57,9 +58,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -67,11 +66,13 @@ import jenkins.plugins.git.AbstractGitSCMSource;
 import jenkins.plugins.git.AbstractGitSCMSource.SpecificRevisionBuildChooser;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMHeadCategory;
+import jenkins.scm.api.SCMHeadEvent;
 import jenkins.scm.api.SCMHeadObserver;
 import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceCriteria;
 import jenkins.scm.api.SCMSourceDescriptor;
+import jenkins.scm.api.SCMSourceEvent;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
@@ -237,6 +238,10 @@ public class BitbucketSCMSource extends SCMSource {
         return bitbucketServerUrl;
     }
 
+    private String bitbucketServerUrl() {
+        return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
+    }
+
     public void setBitbucketConnector(@NonNull BitbucketApiConnector bitbucketConnector) {
         this.bitbucketConnector = bitbucketConnector;
     }
@@ -272,14 +277,14 @@ public class BitbucketSCMSource extends SCMSource {
     }
 
     @Override
-    protected void retrieve(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener) throws IOException,
-            InterruptedException {
-
+    protected void retrieve(@CheckForNull SCMSourceCriteria criteria, @NonNull SCMHeadObserver observer,
+                            @CheckForNull SCMHeadEvent<?> event, @NonNull TaskListener listener)
+            throws IOException, InterruptedException {
         StandardUsernamePasswordCredentials scanCredentials = getScanCredentials();
         if (scanCredentials == null) {
-            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl);
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl());
         } else {
-            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, CredentialsNameProvider.name(scanCredentials));
+            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl(), CredentialsNameProvider.name(scanCredentials));
         }
 
         // Search branches
@@ -303,7 +308,21 @@ public class BitbucketSCMSource extends SCMSource {
                                 + pull.getSource().getBranch().getName());
 
                 // Resolve full hash. See https://bitbucket.org/site/master/issues/11415/pull-request-api-should-return-full-commit
-                String hash = bitbucket.resolveSourceFullHash(pull);
+
+                String hash = null;
+                try {
+                    hash = bitbucket.resolveSourceFullHash(pull);
+                } catch (BitbucketRequestException e) {
+                    if (e.getHttpCode() == 403) {
+                        listener.getLogger().println(
+                                "Do not have permission to view PR from " + pull.getSource().getRepository().getFullName() + " and branch "
+                                        + pull.getSource().getBranch().getName());
+                    } else {
+                        e.printStackTrace(
+                                listener.error("Can not resolve hash: [%s]%n", pull.getSource().getCommit().getHash()));
+                    }
+                    continue;
+                }
                 if (hash != null) {
                     observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
@@ -581,30 +600,30 @@ public class BitbucketSCMSource extends SCMSource {
 
     @NonNull
     @Override
-    protected Map<Class<? extends Action>, Action> retrieveActions(@NonNull TaskListener listener)
+    protected List<Action> retrieveActions(@CheckForNull SCMSourceEvent event,
+                                           @NonNull TaskListener listener)
             throws IOException, InterruptedException {
-        Map<Class<? extends Action>, Action> result = new HashMap<>();
+        // TODO when we have support for trusted events, use the details from event if event was from trusted source
+        List<Action> result = new ArrayList<>();
         final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
         BitbucketRepository r = bitbucket.getRepository();
         if (r != null) {
-            result.put(BitbucketRepoMetadataAction.class, new BitbucketRepoMetadataAction(r));
+            result.add(new BitbucketRepoMetadataAction(r));
         }
-        String serverUrl =
-                StringUtils
-                        .removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
-        result.put(BitbucketLink.class,
-                new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
+        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
+        result.add(new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
         return result;
     }
 
     @NonNull
     @Override
-    protected Map<Class<? extends Action>, Action> retrieveActions(@NonNull SCMHead head,
-                                                                   @NonNull TaskListener listener)
+    protected List<Action> retrieveActions(@NonNull SCMHead head,
+                                           @CheckForNull SCMHeadEvent event,
+                                           @NonNull TaskListener listener)
             throws IOException, InterruptedException {
-        Map<Class<? extends Action>, Action> result = new HashMap<>();
-        String serverUrl =
-                StringUtils.removeEnd(bitbucketServerUrl == null ? "https://bitbucket.org" : bitbucketServerUrl, "/");
+        // TODO when we have support for trusted events, use the details from event if event was from trusted source
+        List<Action> result = new ArrayList<>();
+        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
         String branchUrl;
         if (head instanceof PullRequestSCMHead) {
             PullRequestSCMHead pr = (PullRequestSCMHead) head;
@@ -612,8 +631,7 @@ public class BitbucketSCMSource extends SCMSource {
         } else {
             branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
         }
-        result.put(BitbucketLink.class,
-                new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
+        result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
         return result;
     }
 
@@ -628,7 +646,8 @@ public class BitbucketSCMSource extends SCMSource {
             return "Bitbucket";
         }
 
-        public FormValidation doCheckCredentialsId(@QueryParameter String value) {
+        public FormValidation doCheckCredentialsId(@QueryParameter String value,
+                                                   @QueryParameter String bitbucketServerUrl) {
             if (!value.isEmpty()) {
                 return FormValidation.ok();
             } else {
@@ -651,7 +670,7 @@ public class BitbucketSCMSource extends SCMSource {
 
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
-            result.withEmptySelection();
+            result.includeEmptyValue();
             new BitbucketApiConnector(bitbucketServerUrl).fillCredentials(result, context);
             return result;
         }

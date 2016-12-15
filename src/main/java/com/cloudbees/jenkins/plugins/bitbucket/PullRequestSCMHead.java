@@ -26,7 +26,9 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import jenkins.scm.api.ChangeRequestSCMHead;
+import java.net.MalformedURLException;
+import java.net.URL;
+import jenkins.scm.api.mixin.ChangeRequestSCMHead;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.actions.ChangeRequestAction;
 
@@ -34,7 +36,7 @@ import jenkins.scm.api.actions.ChangeRequestAction;
  * {@link SCMHead} for a BitBucket Pull request
  * @since FIXME
  */
-public class PullRequestSCMHead extends ChangeRequestSCMHead {
+public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead {
 
     private static final String PR_BRANCH_PREFIX = "PR-";
 
@@ -46,15 +48,17 @@ public class PullRequestSCMHead extends ChangeRequestSCMHead {
 
     private final String branchName;
 
-    @NonNull
-    private PullRequestAction metadata;
+    private final String number;
+
+    private final BranchSCMHead target;
 
     public PullRequestSCMHead(String repoOwner, String repository, String branchName, BitbucketPullRequest pr) {
         super(PR_BRANCH_PREFIX + pr.getId());
         this.repoOwner = repoOwner;
         this.repository = repository;
         this.branchName = branchName;
-        this.metadata = new PullRequestAction(pr);
+        this.number = pr.getId();
+        this.target = new BranchSCMHead(pr.getDestination().getBranch().getName());
     }
 
     public String getRepoOwner() {
@@ -69,15 +73,16 @@ public class PullRequestSCMHead extends ChangeRequestSCMHead {
         return branchName;
     }
 
-    @CheckForNull
-    public Integer getPullRequestId() {
-        return Integer.parseInt(metadata.getId());
+    @NonNull
+    @Override
+    public String getId() {
+        return number;
     }
 
     @NonNull
     @Override
-    public ChangeRequestAction getChangeRequestAction() {
-        return metadata;
+    public SCMHead getTarget() {
+        return target;
     }
 
 }

@@ -155,6 +155,15 @@ public class BranchScanningTest {
                 return probe.exists("markerfile.txt");
             }
 
+            @Override
+            public int hashCode() {
+                return getClass().hashCode();
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                return getClass().isInstance(obj);
+            }
         });
         return mocked;
     }

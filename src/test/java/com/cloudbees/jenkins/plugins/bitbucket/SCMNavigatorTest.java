@@ -29,6 +29,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,18 +86,21 @@ public class SCMNavigatorTest {
             this.listener = listener;
         }
 
+        @NonNull
         @Override
         public SCMSourceOwner getContext() {
             return null;
         }
 
+        @NonNull
         @Override
         public TaskListener getListener() {
             return listener;
         }
 
+        @NonNull
         @Override
-        public ProjectObserver observe(String projectName) throws IllegalArgumentException {
+        public ProjectObserver observe(@NonNull String projectName) throws IllegalArgumentException {
             observed.add(projectName);
             ProjectObserverImpl obs = new ProjectObserverImpl();
             projectObservers.add(obs);
@@ -104,7 +108,7 @@ public class SCMNavigatorTest {
         }
 
         @Override
-        public void addAttribute(String key, Object value) throws IllegalArgumentException, ClassCastException {
+        public void addAttribute(@NonNull String key, Object value) throws IllegalArgumentException, ClassCastException {
         }
 
         public List<String> getObserved() {
@@ -120,12 +124,12 @@ public class SCMNavigatorTest {
             private List<SCMSource> sources = new ArrayList<SCMSource>();
 
             @Override
-            public void addSource(SCMSource source) {
+            public void addSource(@NonNull SCMSource source) {
                 sources.add(source);
             }
 
             @Override
-            public void addAttribute(String key, Object value) throws IllegalArgumentException, ClassCastException {
+            public void addAttribute(@NonNull String key, Object value) throws IllegalArgumentException, ClassCastException {
             }
 
             @Override

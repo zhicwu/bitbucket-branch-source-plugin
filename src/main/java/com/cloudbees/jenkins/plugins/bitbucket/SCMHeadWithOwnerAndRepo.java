@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestDestination;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.ObjectStreamException;
@@ -31,17 +32,10 @@ import java.net.URL;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 
 import jenkins.scm.api.SCMHead;
+import jenkins.scm.api.actions.ChangeRequestAction;
 
 /**
- * {@link SCMHead} extended with additional information:
- * <ul>
- *   <li>{@link #repoOwner}: the repository owner</li>
- *   <li>{@link #repoName}: the repository name</li>
- *   <li>{@link #metadata}: metadata related to Pull Requests - null if this object is not representing a PR</li>
- * </ul>
- * This information is required in this plugin since {@link BitbucketSCMSource} is processing pull requests
- * and they are managed as separate repositories in Bitbucket without any reference to them in the destination
- * repository.
+ * Legacy class retained to allow for graceful migration of serialized data.
  * @deprecated use {@link PullRequestSCMHead} or {@link BranchSCMHead}
  */
 @Deprecated
@@ -53,7 +47,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private final String repoName;
 
-    private transient PullRequestAction metadata;
+    private transient ChangeRequestAction metadata;
 
     public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
         super(branchName);
@@ -66,6 +60,11 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
             return new PullRequestSCMHead(repoOwner, repoName, super.getName(), new BitbucketPullRequest() {
                 @Override
                 public BitbucketPullRequestSource getSource() {
+                    return null;
+                }
+
+                @Override
+                public BitbucketPullRequestDestination getDestination() {
                     return null;
                 }
 

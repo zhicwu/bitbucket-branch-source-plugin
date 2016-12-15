@@ -113,6 +113,16 @@ public class BranchScanningIntegrationTest {
             @Override public boolean isHead(SCMSourceCriteria.Probe probe, TaskListener listener) throws IOException {
                 return probe.exists("markerfile.txt");
             }
+
+            @Override
+            public int hashCode() {
+                return getClass().hashCode();
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                return getClass().isInstance(obj);
+            }
         };
 
         protected MultiBranchProjectImpl(ItemGroup parent, String name) {

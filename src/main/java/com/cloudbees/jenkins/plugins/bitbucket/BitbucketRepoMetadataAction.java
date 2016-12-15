@@ -25,18 +25,15 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import jenkins.branch.MetadataAction;
-import jenkins.branch.MultiBranchProject;
+import jenkins.scm.api.metadata.AvatarMetadataAction;
 
 /**
- * Invisible property on {@link MultiBranchProject}
- * that retains information about GitHub repository.
+ * Invisible property that retains information about GitHub repository.
  *
  * @author Kohsuke Kawaguchi
  */
-public class BitbucketRepoMetadataAction extends MetadataAction {
+public class BitbucketRepoMetadataAction extends AvatarMetadataAction{
 
     private final String scm;
 
@@ -51,25 +48,8 @@ public class BitbucketRepoMetadataAction extends MetadataAction {
     /**
      * {@inheritDoc}
      */
-    @CheckForNull
     @Override
-    public String getObjectDescription() {
-        return null;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getObjectUrl() {
-        return null;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getFolderIconClassName() {
+    public String getAvatarIconClassName() {
         if ("git".equals(scm)) {
             return "icon-bitbucket-repo-git";
         }
@@ -83,7 +63,7 @@ public class BitbucketRepoMetadataAction extends MetadataAction {
      * {@inheritDoc}
      */
     @Override
-    public String getFolderIconDescription() {
+    public String getAvatarDescription() {
         if ("git".equals(scm)) {
             return Messages.BitbucketRepoMetadataAction_IconDescription_Git();
         }
