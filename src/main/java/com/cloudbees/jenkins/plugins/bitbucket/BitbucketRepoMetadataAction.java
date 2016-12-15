@@ -30,8 +30,6 @@ import jenkins.scm.api.metadata.AvatarMetadataAction;
 
 /**
  * Invisible property that retains information about GitHub repository.
- *
- * @author Kohsuke Kawaguchi
  */
 public class BitbucketRepoMetadataAction extends AvatarMetadataAction{
 
