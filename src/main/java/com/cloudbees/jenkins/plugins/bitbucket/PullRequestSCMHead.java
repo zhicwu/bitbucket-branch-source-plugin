@@ -24,13 +24,9 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import java.net.MalformedURLException;
-import java.net.URL;
 import jenkins.scm.api.mixin.ChangeRequestSCMHead;
 import jenkins.scm.api.SCMHead;
-import jenkins.scm.api.actions.ChangeRequestAction;
 
 /**
  * {@link SCMHead} for a BitBucket Pull request
@@ -51,6 +47,16 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead 
     private final String number;
 
     private final BranchSCMHead target;
+
+    public PullRequestSCMHead(String repoOwner, String repository, String branchName,
+                              String number, BranchSCMHead target) {
+        super(PR_BRANCH_PREFIX + number);
+        this.repoOwner = repoOwner;
+        this.repository = repository;
+        this.branchName = branchName;
+        this.number = number;
+        this.target = target;
+    }
 
     public PullRequestSCMHead(String repoOwner, String repository, String branchName, BitbucketPullRequest pr) {
         super(PR_BRANCH_PREFIX + pr.getId());

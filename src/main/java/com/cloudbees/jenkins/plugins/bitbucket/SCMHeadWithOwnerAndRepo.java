@@ -25,8 +25,13 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestDestination;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestDestination;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestSource;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.ObjectStreamException;
+import java.net.MalformedURLException;
 import java.net.URL;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
@@ -47,7 +52,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private final String repoName;
 
-    private transient ChangeRequestAction metadata;
+    private transient PullRequestAction metadata;
 
     public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
         super(branchName);
@@ -57,39 +62,9 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private Object readResolve() throws ObjectStreamException {
         if (metadata != null) {
-            return new PullRequestSCMHead(repoOwner, repoName, super.getName(), new BitbucketPullRequest() {
-                @Override
-                public BitbucketPullRequestSource getSource() {
-                    return null;
-                }
-
-                @Override
-                public BitbucketPullRequestDestination getDestination() {
-                    return null;
-                }
-
-                @NonNull
-                @Override
-                public String getId() {
-                    return metadata.getId();
-                }
-
-                @Override
-                public String getTitle() {
-                    return metadata.getTitle();
-                }
-
-                @Override
-                public String getLink() {
-                    URL url = metadata.getURL();
-                    return url == null ? null : url.toString();
-                }
-
-                @Override
-                public String getAuthorLogin() {
-                    return metadata.getAuthor();
-                }
-            });
+            // we just want to flag this as a PR, the legacy data did not contain the required information so
+            // we will end up triggering a rebuild on next index / event via take-over
+            return new PullRequestSCMHead(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
         }
         return new BranchSCMHead(getName());
     }
