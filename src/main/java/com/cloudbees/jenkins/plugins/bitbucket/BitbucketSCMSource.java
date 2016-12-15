@@ -319,7 +319,7 @@ public class BitbucketSCMSource extends SCMSource {
                                         + pull.getSource().getBranch().getName());
                     } else {
                         e.printStackTrace(
-                                listener.error("Can not resolve hash: [%s]%n", pull.getSource().getCommit().getHash()));
+                                listener.error("Cannot resolve hash: [%s]%n", pull.getSource().getCommit().getHash()));
                     }
                     continue;
                 }
