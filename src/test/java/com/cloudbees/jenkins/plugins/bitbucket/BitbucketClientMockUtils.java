@@ -27,6 +27,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValueDestination;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -158,6 +159,12 @@ public class BitbucketClientMockUtils {
         source.setRepository(repository);
 
         pr.setSource(source);
+
+        BitbucketPullRequestValueDestination destination = new BitbucketPullRequestValueDestination();
+        branch = new BitbucketCloudBranch();
+        branch.setName("branch1");
+        destination.setBranch(branch);
+        pr.setDestination(destination);
 
         pr.setId("23");
         pr.setAuthor(new BitbucketPullRequestValue.Author("amuniz"));
