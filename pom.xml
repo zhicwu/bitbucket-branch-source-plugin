@@ -32,7 +32,7 @@
     </parent>
 
     <artifactId>cloudbees-bitbucket-branch-source</artifactId>
-    <version>2.0.0-SNAPSHOT</version>
+    <version>2.0.0-beta-1-SNAPSHOT</version>
     <packaging>hpi</packaging>
 
     <name>Bitbucket Branch Source Plugin</name>
@@ -47,6 +47,7 @@
 
     <properties>
         <jenkins.version>1.642.3</jenkins.version>
+        <scm-api.version>2.0.1-beta-1</scm-api.version>
     </properties>
 
     <scm>
@@ -60,12 +61,12 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>scm-api</artifactId>
-            <version>2.0.1-SNAPSHOT</version>
+            <version>${scm-api.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>git</artifactId>
-            <version>2.6.1-SNAPSHOT</version>
+            <version>2.6.2-beta-1-SNAPSHOT</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.httpcomponents</groupId>
@@ -76,7 +77,7 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>mercurial</artifactId>
-            <version>1.58-SNAPSHOT</version>
+            <version>1.58-beta-1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.codehaus.jackson</groupId>
@@ -91,13 +92,13 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>branch-api</artifactId>
-            <version>2.0.0-SNAPSHOT</version>
+            <version>2.0.0-beta-1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>scm-api</artifactId>
-            <version>2.0.1-SNAPSHOT</version>
+            <version>${scm-api.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
