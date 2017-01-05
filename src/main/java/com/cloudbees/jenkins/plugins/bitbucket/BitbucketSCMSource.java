@@ -39,6 +39,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Action;
+import hudson.model.Actionable;
 import hudson.model.TaskListener;
 import hudson.plugins.git.BranchSpec;
 import hudson.plugins.git.GitSCM;
@@ -76,6 +77,7 @@ import jenkins.scm.api.SCMSourceDescriptor;
 import jenkins.scm.api.SCMSourceEvent;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.metadata.ObjectMetadataAction;
+import jenkins.scm.api.metadata.PrimaryInstanceMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
@@ -654,6 +656,28 @@ public class BitbucketSCMSource extends SCMSource {
                 branchUrl = repoOwner + "/" + repository + "/pull-requests/" + pr.getId();
             } else {
                 branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
+            }
+            SCMSourceOwner owner = getOwner();
+            if (owner instanceof Actionable) {
+                // TODO convince BitBucket to expose the master branch info via the v2.0 cloud API and the server API.
+                // TODO stop assuming we only have one source
+                BitbucketRepoMetadataAction a = ((Actionable) owner).getAction(BitbucketRepoMetadataAction.class);
+                if (a != null) {
+                    switch (a.getScm()) {
+                        case "git":
+                            if ("master".equals(head.getName())) {
+                                result.add(new PrimaryInstanceMetadataAction());
+                            }
+                            break;
+                        case "hg":
+                            if ("default".equals(head.getName())) {
+                                result.add(new PrimaryInstanceMetadataAction());
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
             result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
             result.add(new ObjectMetadataAction(null, null, serverUrl + "/" + branchUrl));
