@@ -29,7 +29,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import jenkins.scm.api.metadata.AvatarMetadataAction;
 
 /**
- * Invisible property that retains information about GitHub repository.
+ * Invisible property that retains information about Bitbucket repository.
  */
 public class BitbucketRepoMetadataAction extends AvatarMetadataAction{
 

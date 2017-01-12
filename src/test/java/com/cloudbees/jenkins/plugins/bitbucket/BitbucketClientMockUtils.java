@@ -164,6 +164,9 @@ public class BitbucketClientMockUtils {
         branch = new BitbucketCloudBranch();
         branch.setName("branch1");
         destination.setBranch(branch);
+        repository = new BitbucketCloudRepository();
+        repository.setFullName("amuniz/test-repos");
+        destination.setRepository(repository);
         pr.setDestination(destination);
 
         pr.setId("23");

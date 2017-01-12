@@ -56,6 +56,7 @@ import hudson.util.ListBoxModel;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,9 +75,11 @@ import jenkins.scm.api.SCMSourceCriteria;
 import jenkins.scm.api.SCMSourceDescriptor;
 import jenkins.scm.api.SCMSourceEvent;
 import jenkins.scm.api.SCMSourceOwner;
+import jenkins.scm.api.metadata.ObjectMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jgit.lib.Constants;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -238,7 +241,7 @@ public class BitbucketSCMSource extends SCMSource {
         return bitbucketServerUrl;
     }
 
-    private String bitbucketServerUrl() {
+    private String bitbucketUrl() {
         return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
@@ -282,9 +285,9 @@ public class BitbucketSCMSource extends SCMSource {
             throws IOException, InterruptedException {
         StandardUsernamePasswordCredentials scanCredentials = getScanCredentials();
         if (scanCredentials == null) {
-            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl());
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketUrl());
         } else {
-            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl(), CredentialsNameProvider.name(scanCredentials));
+            listener.getLogger().format("Connecting to %s using %s%n", bitbucketUrl(), CredentialsNameProvider.name(scanCredentials));
         }
 
         // Search branches
@@ -610,8 +613,17 @@ public class BitbucketSCMSource extends SCMSource {
         if (r != null) {
             result.add(new BitbucketRepoMetadataAction(r));
         }
-        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
-        result.add(new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
+        String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
+        if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
+            result.add(new BitbucketLink("icon-bitbucket-repo",
+                    serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
+            result.add(new ObjectMetadataAction(r.getFullName(), null,
+                    serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
+        } else {
+            result.add(new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
+            result.add(new ObjectMetadataAction(r.getFullName(), null,
+                    serverUrl + "/" + repoOwner + "/" + repository));
+        }
         return result;
     }
 
@@ -623,15 +635,31 @@ public class BitbucketSCMSource extends SCMSource {
             throws IOException, InterruptedException {
         // TODO when we have support for trusted events, use the details from event if event was from trusted source
         List<Action> result = new ArrayList<>();
-        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
-        String branchUrl;
-        if (head instanceof PullRequestSCMHead) {
-            PullRequestSCMHead pr = (PullRequestSCMHead) head;
-            branchUrl = pr.getRepoOwner() + "/" + pr.getRepository() + "/branch/" + pr.getBranchName();
+        String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
+        if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
+            String branchUrl;
+            if (head instanceof PullRequestSCMHead) {
+                PullRequestSCMHead pr = (PullRequestSCMHead) head;
+                branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/pull-requests/"+pr.getId()+"/overview";
+            } else {
+                https:
+//bitbucket.beescloud.com/projects/DUB/repos/stunning-adventure/compare/commits?sourceBranch=refs%2Fheads%2Forigin-pr-branch
+                branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/compare/commits?sourceBranch=" +
+                        URLEncoder.encode(Constants.R_HEADS + head.getName(), "UTF-8");
+            }
+            result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
+            result.add(new ObjectMetadataAction(null, null, serverUrl+"/"+branchUrl));
         } else {
-            branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
+            String branchUrl;
+            if (head instanceof PullRequestSCMHead) {
+                PullRequestSCMHead pr = (PullRequestSCMHead) head;
+                branchUrl = repoOwner + "/" + repository + "/pull-requests/" + pr.getId();
+            } else {
+                branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
+            }
+            result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
+            result.add(new ObjectMetadataAction(null, null, serverUrl + "/" + branchUrl));
         }
-        result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
         return result;
     }
 

@@ -44,6 +44,7 @@ import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceObserver;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceObserver.ProjectObserver;
+import org.mockito.Mockito;
 
 public class SCMNavigatorTest {
 
@@ -52,7 +53,8 @@ public class SCMNavigatorTest {
         BitbucketSCMNavigator navigator = new BitbucketSCMNavigator("myteam", null, null);
         navigator.setPattern("repo(.*)");
         navigator.setBitbucketConnector(getConnectorMock(RepositoryType.GIT, true));
-        SCMSourceObserverImpl observer = new SCMSourceObserverImpl(BitbucketClientMockUtils.getTaskListenerMock());
+        SCMSourceObserverImpl observer = new SCMSourceObserverImpl(BitbucketClientMockUtils.getTaskListenerMock(),
+                Mockito.mock(SCMSourceOwner.class));
         navigator.visitSources(observer);
 
         assertEquals("myteam", navigator.getRepoOwner());
@@ -81,15 +83,17 @@ public class SCMNavigatorTest {
         List<String> observed = new ArrayList<String>();
         List<ProjectObserver> projectObservers = new ArrayList<SCMSourceObserver.ProjectObserver>();
         TaskListener listener;
+        SCMSourceOwner owner;
 
-        public SCMSourceObserverImpl(TaskListener listener) {
+        public SCMSourceObserverImpl(TaskListener listener, SCMSourceOwner owner) {
             this.listener = listener;
+            this.owner = owner;
         }
 
         @NonNull
         @Override
         public SCMSourceOwner getContext() {
-            return null;
+            return owner;
         }
 
         @NonNull

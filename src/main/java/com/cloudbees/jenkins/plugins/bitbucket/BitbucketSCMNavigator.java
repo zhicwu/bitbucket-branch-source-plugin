@@ -162,7 +162,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
     @NonNull
     @Override
     protected String id() {
-        return bitbucketServerUrl() + "::" + repoOwner;
+        return bitbucketUrl() + "::" + repoOwner;
     }
 
     @Override
@@ -177,9 +177,9 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                 credentialsId, StandardUsernamePasswordCredentials.class);
 
         if (credentials == null) {
-            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketServerUrl());
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketUrl());
         } else {
-            listener.getLogger().format("Connecting to %s using %s%n", bitbucketServerUrl(), CredentialsNameProvider.name(credentials));
+            listener.getLogger().format("Connecting to %s using %s%n", bitbucketUrl(), CredentialsNameProvider.name(credentials));
         }
         List<? extends BitbucketRepository> repositories;
         BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, credentials);
@@ -223,7 +223,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         projectObserver.complete();
     }
 
-    private String bitbucketServerUrl() {
+    private String bitbucketUrl() {
         return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
@@ -231,7 +231,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
     @Override
     public List<Action> retrieveActions(@NonNull SCMNavigatorOwner owner,
                                         @CheckForNull SCMNavigatorEvent event,
-                                                                @NonNull TaskListener listener)
+                                        @NonNull TaskListener listener)
             throws IOException, InterruptedException {
         // TODO when we have support for trusted events, use the details from event if event was from trusted source
         listener.getLogger().printf("Looking up team details of %s...%n", getRepoOwner());
@@ -240,7 +240,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                 getBitbucketConnector().lookupCredentials(owner,
                         credentialsId, StandardUsernamePasswordCredentials.class);
 
-        String serverUrl = StringUtils.removeEnd(bitbucketServerUrl(), "/");
+        String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
         if (credentials == null) {
             listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n",
                     serverUrl);
