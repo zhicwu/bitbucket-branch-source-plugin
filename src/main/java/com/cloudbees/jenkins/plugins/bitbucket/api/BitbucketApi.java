@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
@@ -47,30 +48,38 @@ public interface BitbucketApi {
 
     /**
      * @return the list of pull requests in the repository.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketPullRequest> getPullRequests();
+    List<? extends BitbucketPullRequest> getPullRequests() throws IOException, InterruptedException;
 
     /**
      * @param id the pull request ID
      * @return the pull request or null if the PR does not exist
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @CheckForNull
-    BitbucketPullRequest getPullRequestById(Integer id);
+    BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException;
 
     /**
      * @return the repository specified by {@link #getOwner()}/{@link #getRepositoryName()} 
      *      (or null if repositoryName is not set)
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @CheckForNull
-    BitbucketRepository getRepository();
+    BitbucketRepository getRepository() throws IOException, InterruptedException;
 
     /**
      * Post a comment to a given commit hash.
      *
      * @param hash commit hash
      * @param comment string to post as comment
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void postCommitComment(String hash, String comment);
+    void postCommitComment(String hash, String comment) throws IOException, InterruptedException;
 
     /**
      * Checks if the given path exists in the repository at the specified branch.
@@ -78,8 +87,10 @@ public interface BitbucketApi {
      * @param branch the branch name
      * @param path the path to check for
      * @return true if the path exists
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    boolean checkPathExists(String branch, String path);
+    boolean checkPathExists(String branch, String path) throws IOException, InterruptedException;
 
     /**
      * Gets the default branch in the repository.
@@ -89,50 +100,64 @@ public interface BitbucketApi {
 
     /**
      * @return the list of branches in the repository.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketBranch> getBranches();
+    List<? extends BitbucketBranch> getBranches() throws IOException, InterruptedException;
 
     /**
      * Resolve the commit object given its hash.
      *
      * @param hash the hash to resolve
      * @return the commit object or null if the hash does not exist
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @CheckForNull
-    BitbucketCommit resolveCommit(String hash);
+    BitbucketCommit resolveCommit(String hash) throws IOException, InterruptedException;
 
     /**
      * Resolve the head commit hash of the pull request source repository branch.
      *
      * @param pull the pull request to resolve the source hash from
      * @return the source head hash
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    String resolveSourceFullHash(BitbucketPullRequest pull);
+    String resolveSourceFullHash(BitbucketPullRequest pull) throws IOException, InterruptedException;
 
     /**
      * Register a webhook on the repository.
      *
      * @param hook the webhook object
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void registerCommitWebHook(BitbucketWebHook hook);
+    void registerCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException;
 
     /**
      * Remove the webhook (ID field required) from the repository.
      *
      * @param hook the webhook object
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void removeCommitWebHook(BitbucketWebHook hook);
+    void removeCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException;
 
     /**
      * @return the list of webhooks registered in the repository.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketWebHook> getWebHooks();
+    List<? extends BitbucketWebHook> getWebHooks() throws IOException, InterruptedException;
 
     /**
      * @return the team profile of the current owner, or null if {@link #getOwner()} is not a team ID.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @CheckForNull
-    BitbucketTeam getTeam();
+    BitbucketTeam getTeam() throws IOException, InterruptedException;
 
     /**
      * Returns the repositories where the user has the given role.
@@ -141,27 +166,36 @@ public interface BitbucketApi {
      *             See {@link UserRoleInRepository} for more information. 
      *             Use role = null if the repoOwner is a team ID.
      * @return the repositories list (it can be empty)
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketRepository> getRepositories(UserRoleInRepository role);
+    List<? extends BitbucketRepository> getRepositories(UserRoleInRepository role)
+            throws IOException, InterruptedException;
 
     /**
      * Returns all the repositories for the current owner (even if it's a regular user or a team).
      *
      * @return all repositories for the current {@link #getOwner()}
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketRepository> getRepositories();
+    List<? extends BitbucketRepository> getRepositories() throws IOException, InterruptedException;
 
     /**
      * Set the build status for the given commit hash.
      *
      * @param status the status object to be serialized
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void postBuildStatus(BitbucketBuildStatus status);
+    void postBuildStatus(BitbucketBuildStatus status) throws IOException, InterruptedException;
 
     /**
      * @return true if the repository ({@link #getOwner()}/{@link #getRepositoryName()}) is private, false otherwise
      *          (if it's public or does not exists).
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    boolean isPrivate();
+    boolean isPrivate() throws IOException, InterruptedException;
 
 }

@@ -23,6 +23,31 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.client;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketException;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
+import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
+import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequests;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudTeam;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHooks;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.PaginatedBitbucketRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.ProxyConfiguration;
+import hudson.util.Secret;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -34,7 +59,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -56,33 +82,6 @@ import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
-
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketException;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
-import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
-import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
-import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
-import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequests;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudTeam;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHooks;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.PaginatedBitbucketRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import hudson.ProxyConfiguration;
-import hudson.util.Secret;
-import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
 
 public class BitbucketCloudApiClient implements BitbucketApi {
     private static final Logger LOGGER = Logger.getLogger(BitbucketCloudApiClient.class.getName());
@@ -146,176 +145,185 @@ public class BitbucketCloudApiClient implements BitbucketApi {
 
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketPullRequestValue> getPullRequests() {
-        String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests?page=%s&pagelen=50";
+    public List<BitbucketPullRequestValue> getPullRequests() throws InterruptedException, IOException {
+        String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests?page=%d&pagelen=50";
 
+        List<BitbucketPullRequestValue> pullRequests = new ArrayList<BitbucketPullRequestValue>();
+        int pageNumber = 1;
+        String response = getRequest(String.format(url, pageNumber));
+        BitbucketPullRequests page = null;
         try {
-            List<BitbucketPullRequestValue> pullRequests = new ArrayList<BitbucketPullRequestValue>();
-            Integer pageNumber = 1;
-            String response = getRequest(String.format(url, pageNumber.toString()));
-            BitbucketPullRequests page = parse(response, BitbucketPullRequests.class);
-            pullRequests.addAll(page.getValues());
-            while (page.getNext() != null && pageNumber < MAX_PAGES) {
-                pageNumber++;
-                response = getRequest(String.format(url, pageNumber.toString()));
-                page = parse(response, BitbucketPullRequests.class);
-                pullRequests.addAll(page.getValues());
-            }
-            return pullRequests;
+            page = parse(response, BitbucketPullRequests.class);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid repositories response", e);
+            throw new IOException("Malformed response from url: " + String.format(url, pageNumber), e);
         }
-        return Collections.EMPTY_LIST;
+        pullRequests.addAll(page.getValues());
+        while (page.getNext() != null && pageNumber < MAX_PAGES) {
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+            pageNumber++;
+            response = getRequest(String.format(url, pageNumber));
+            try {
+                page = parse(response, BitbucketPullRequests.class);
+            } catch (IOException e) {
+                throw new IOException("Malformed response from url: " + String.format(url, pageNumber), e);
+            }
+            pullRequests.addAll(page.getValues());
+        }
+        return pullRequests;
     }
 
     /** {@inheritDoc} */
     @Override
     @CheckForNull
-    public BitbucketPullRequest getPullRequestById(Integer id) {
-        String response = getRequest(V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests/" + id);
+    public BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException {
+        String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests/" + id;
+        String response = getRequest(url);
         try {
             return parse(response, BitbucketPullRequestValue.class);
-        } catch(Exception e) {
-            LOGGER.log(Level.WARNING, "invalid pull request response.", e);
+        } catch (IOException e) {
+            throw new IOException("Malformed response from url: " + url, e);
         }
-        return null;
     }
 
     /** {@inheritDoc} */
     @Override
     @CheckForNull
-    public BitbucketRepository getRepository() {
+    public BitbucketRepository getRepository() throws IOException, InterruptedException {
         if (repositoryName == null) {
             return null;
         }
-        String response = getRequest(V2_API_BASE_URL + owner + "/" + repositoryName);
+        String url = V2_API_BASE_URL + owner + "/" + repositoryName;
+        String response = getRequest(url);
         try {
             return parse(response, BitbucketCloudRepository.class);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "invalid repository response.", e);
+            throw new IOException("Malformed response from url: " + url, e);
         }
-        return null;
     }
 
-    public void deletePullRequestComment(String pullRequestId, String commentId) {
+    public void deletePullRequestComment(String pullRequestId, String commentId) throws IOException, InterruptedException {
         String path = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests/" + pullRequestId + "/comments/" + commentId;
         deleteRequest(path);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void postCommitComment(String hash, String comment) {
+    public void postCommitComment(String hash, String comment) throws IOException, InterruptedException {
         String path = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/changesets/" + hash + "/comments";
         try {
             NameValuePair content = new NameValuePair("content", comment);
             postRequest(path, new NameValuePair[]{ content });
 
         } catch (UnsupportedEncodingException e) {
-            LOGGER.log(Level.SEVERE, "Enconding error", e);
+            throw e;
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Can not comment on commit", e);
+            throw new IOException("Cannot comment on commit, url: " + path, e);
         }
     }
 
-    public void deletePullRequestApproval(String pullRequestId) {
+    public void deletePullRequestApproval(String pullRequestId) throws IOException, InterruptedException {
         String path = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests/" + pullRequestId + "/approve";
         deleteRequest(path);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean checkPathExists(String branch, String path) {
+    public boolean checkPathExists(String branch, String path) throws IOException, InterruptedException {
         int status = getRequestStatus(V1_API_BASE_URL + owner + "/" + repositoryName + "/raw/" + branch + "/" + path);
         return status == HttpStatus.SC_OK;
     }
 
     @Override
-    public String getDefaultBranch() {
+    public String getDefaultBranch() throws IOException, InterruptedException {
         String response = getRequest(V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/main-branch");
         ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.readTree(response).get("name").getTextValue();
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid default branch response.", e);
-        }
-        return null;
+        // FIXME malformed response should throw IOE
+        return mapper.readTree(response).get("name").getTextValue();
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketCloudBranch> getBranches() {
-        String response = getRequest(V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/branches");
+    public List<BitbucketCloudBranch> getBranches() throws IOException, InterruptedException {
+        String url = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/branches";
+        String response = getRequest(url);
         try {
             return parseBranchesJson(response);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid branches response.", e);
+            throw new IOException("Malformed response from url: " + url, e);
         }
-        return Collections.EMPTY_LIST;
     }
 
     /** {@inheritDoc} */
     @Override
-    @CheckForNull
-    public BitbucketCommit resolveCommit(String hash) {
-        String response = getRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/commit/" + hash);
+    @javax.annotation.CheckForNull
+    public BitbucketCommit resolveCommit(String hash) throws IOException, InterruptedException {
+        String url = V2_API_BASE_URL + owner + "/" + repositoryName + "/commit/" + hash;
+        String response;
+        try {
+            response = getRequest(url);
+        } catch (FileNotFoundException e) {
+            return null;
+        }
         try {
             return parse(response, BitbucketCloudCommit.class);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "cannot resolve commit " + hash + " on " + owner + "/" + repositoryName, e);
+            throw new IOException("Malformed response from url: " + url, e);
         }
-        return null;
     }
 
     /** {@inheritDoc} */
     @Override
     @CheckForNull
-    public String resolveSourceFullHash(BitbucketPullRequest pull) {
-        String response = getRequest(V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" + 
-                pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit().getHash());
+    public String resolveSourceFullHash(BitbucketPullRequest pull) throws IOException, InterruptedException {
+        String url = V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" +
+                pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit()
+                .getHash();
+        String response;
+        try {
+            response = getRequest(url);
+        } catch (FileNotFoundException e) {
+            return null;
+        }
         try {
             return parse(response, BitbucketCloudCommit.class).getHash();
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "cannot resolve PR commit " + pull.getSource().getCommit().getHash(), e);
-        }
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void registerCommitWebHook(BitbucketWebHook hook) {
-        try {
-            postRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks", asJson(hook));
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "cannot register webhook", e);
+            throw new IOException("Malformed response from url: " + url, e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void removeCommitWebHook(BitbucketWebHook hook) {
+    public void registerCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException {
+        postRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks", asJson(hook));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void removeCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException {
         if (StringUtils.isBlank(hook.getUuid())) {
             throw new BitbucketException("Hook UUID required");
         }
-        try {
-            deleteRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks/" + URLEncoder.encode(hook.getUuid(), "UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            LOGGER.log(Level.SEVERE, "cannot remove webhook", e);
-        }
+        deleteRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks/" + URLEncoder.encode(hook.getUuid(), "UTF-8"));
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketRepositoryHook> getWebHooks() {
-        String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/hooks?page=%s&pagelen=50";
+    public List<BitbucketRepositoryHook> getWebHooks() throws IOException, InterruptedException {
+        String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/hooks?page=%d&pagelen=50";
         try {
             List<BitbucketRepositoryHook> repositoryHooks = new ArrayList<BitbucketRepositoryHook>();
-            Integer pageNumber = 1;
-            String response = getRequest(String.format(url, pageNumber.toString()));
+            int pageNumber = 1;
+            String response = getRequest(String.format(url, pageNumber));
             BitbucketRepositoryHooks page = parsePaginatedRepositoryHooks(response);
             repositoryHooks.addAll(page.getValues());
             while (page.getNext() != null && pageNumber < 100) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
                 pageNumber++;
-                response = getRequest(String.format(url, pageNumber.toString()));
+                response = getRequest(String.format(url, pageNumber));
                 page = parsePaginatedRepositoryHooks(response);
                 repositoryHooks.addAll(page.getValues());
             }
@@ -462,22 +470,27 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private String getRequest(String path) {
-        GetMethod httpget = new GetMethod(path);
+    private String getRequest(String path) throws IOException, InterruptedException {
         HttpClient client = getHttpClient();
+        GetMethod httpget = new GetMethod(path);
         String response = null;
         InputStream responseBodyAsStream = null;
         try {
             executeMethod(client, httpget);
             responseBodyAsStream = httpget.getResponseBodyAsStream();
             response = IOUtils.toString(responseBodyAsStream, "UTF-8");
-            if (httpget.getStatusCode() != HttpStatus.SC_OK) {
-                throw new BitbucketRequestException(httpget.getStatusCode(), "HTTP request error. Status: " + httpget.getStatusCode() + ": " + httpget.getStatusText() + ".\n" + response);
+            if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+                throw new FileNotFoundException("URL: " + path);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            if (httpget.getStatusCode() != HttpStatus.SC_OK) {
+                throw new BitbucketRequestException(httpget.getStatusCode(),
+                        "HTTP request error. Status: " + httpget.getStatusCode() + ": " + httpget.getStatusText()
+                                + ".\n" + response);
+            }
+        } catch (BitbucketRequestException | FileNotFoundException e) {
+            throw e;
         } catch (IOException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            throw new IOException("Communication error for url: " + path, e);
         } finally {
             httpget.releaseConnection();
             if (responseBodyAsStream != null) {
@@ -490,20 +503,17 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return response;
     }
 
-    private int getRequestStatus(String path) {
-        GetMethod httpget = new GetMethod(path);
+    private int getRequestStatus(String path) throws IOException {
         HttpClient client = getHttpClient();
+        GetMethod httpget = new GetMethod(path);
         try {
             executeMethod(client, httpget);
             return httpget.getStatusCode();
-        } catch (HttpException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
+            throw new IOException("Communication error for url: " + path, e);
         } finally {
             httpget.releaseConnection();
         }
-        return -1;
     }
 
     private static String getMethodHost(HttpMethod method) {
@@ -514,46 +524,52 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private void deleteRequest(String path) {
-        DeleteMethod httppost = new DeleteMethod(path);
+    private void deleteRequest(String path) throws IOException {
         HttpClient client = getHttpClient();
+        DeleteMethod httppost = new DeleteMethod(path);
         try {
             executeMethod(client, httppost);
+            if (httppost.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+                throw new FileNotFoundException("URL: " + path);
+            }
             if (httppost.getStatusCode() != HttpStatus.SC_NO_CONTENT) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText());
             }
+        } catch (BitbucketRequestException e) {
+            throw e;
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
+            throw new IOException("Communication error for url: " + path, e);
         } finally {
             httppost.releaseConnection();
         }
     }
 
-    private String postRequest(PostMethod httppost) throws UnsupportedEncodingException {
+    private String postRequest(PostMethod httppost) throws IOException {
         HttpClient client = getHttpClient();
         String response = "";
         InputStream responseBodyAsStream = null;
         try {
             executeMethod(client, httppost);
             responseBodyAsStream = httppost.getResponseBodyAsStream();
-            response = IOUtils.toString(responseBodyAsStream, "UTF-8");
+            String response = IOUtils.toString(responseBodyAsStream, "UTF-8");
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            return response;
+        } catch (BitbucketRequestException e) {
+            throw e;
         } catch (IOException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            try {
+                throw new IOException("Communication error for url: " + httppost.getURI(), e);
+            } catch (IOException e1) {
+                throw new IOException("Communication error", e);
+            }
         } finally {
             httppost.releaseConnection();
             if (responseBodyAsStream != null) {
                 IOUtils.closeQuietly(responseBodyAsStream);
             }
         }
-        if (response == null) {
-            throw new BitbucketRequestException(0, "HTTP request error " + httppost.getStatusCode() + ":" + httppost.getStatusText());
-        }
-        return response;
 
     }
 
@@ -562,19 +578,19 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return mapper.writeValueAsString(o);
     }
 
-    private String postRequest(String path, String content) throws UnsupportedEncodingException {
+    private String postRequest(String path, String content) throws IOException {
         PostMethod httppost = new PostMethod(path);
         httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
         return postRequest(httppost);
     }
 
-    private String postRequest(String path, NameValuePair[] params) throws UnsupportedEncodingException {
+    private String postRequest(String path, NameValuePair[] params) throws IOException {
         PostMethod httppost = new PostMethod(path);
         httppost.setRequestBody(params);
         return postRequest(httppost);
     }
 
-    private List<BitbucketCloudBranch> parseBranchesJson(String response) throws JsonParseException, JsonMappingException, IOException {
+    private List<BitbucketCloudBranch> parseBranchesJson(String response) throws IOException {
         List<BitbucketCloudBranch> branches = new ArrayList<BitbucketCloudBranch>();
         ObjectMapper mapper = new ObjectMapper();
         JSONObject obj = JSONObject.fromObject(response);
