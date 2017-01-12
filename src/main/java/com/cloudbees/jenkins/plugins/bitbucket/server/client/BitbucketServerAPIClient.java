@@ -83,6 +83,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     private static final String API_BASE_PATH = "/rest/api/1.0";
     private static final String API_REPOSITORIES_PATH = API_BASE_PATH + "/projects/%s/repos?start=%s";
     private static final String API_REPOSITORY_PATH = API_BASE_PATH + "/projects/%s/repos/%s";
+    private static final String API_DEFAULT_BRANCH_PATH = API_BASE_PATH + "/projects/%s/repos/%s/branches/default";
     private static final String API_BRANCHES_PATH = API_BASE_PATH + "/projects/%s/repos/%s/branches?start=%s";
     private static final String API_PULL_REQUESTS_PATH = API_BASE_PATH + "/projects/%s/repos/%s/pull-requests?start=%s";
     private static final String API_PULL_REQUEST_PATH = API_BASE_PATH + "/projects/%s/repos/%s/pull-requests/%s";
@@ -249,6 +250,17 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     public boolean checkPathExists(String branch, String path) {
         int status = getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, path, branch));
         return status == HttpStatus.SC_OK;
+    }
+
+    @Override
+    public String getDefaultBranch() {
+        String response = getRequest(String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName));
+        try {
+            return parse(response, BitbucketServerBranch.class).getName();
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "invalid commit response.", e);
+        }
+        return null;
     }
 
     /** {@inheritDoc} */

@@ -615,6 +615,10 @@ public class BitbucketSCMSource extends SCMSource {
         if (r != null) {
             result.add(new BitbucketRepoMetadataAction(r));
         }
+        String defaultBranch = bitbucket.getDefaultBranch();
+        if (StringUtils.isNotBlank(defaultBranch)) {
+            result.add(new BitbucketDefaultBranch(repoOwner, repository, defaultBranch));
+        }
         String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
         if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
             result.add(new BitbucketLink("icon-bitbucket-repo",
@@ -659,23 +663,12 @@ public class BitbucketSCMSource extends SCMSource {
             }
             SCMSourceOwner owner = getOwner();
             if (owner instanceof Actionable) {
-                // TODO convince BitBucket to expose the master branch info via the v2.0 cloud API and the server API.
-                // TODO stop assuming we only have one source
-                BitbucketRepoMetadataAction a = ((Actionable) owner).getAction(BitbucketRepoMetadataAction.class);
-                if (a != null) {
-                    switch (a.getScm()) {
-                        case "git":
-                            if ("master".equals(head.getName())) {
-                                result.add(new PrimaryInstanceMetadataAction());
-                            }
-                            break;
-                        case "hg":
-                            if ("default".equals(head.getName())) {
-                                result.add(new PrimaryInstanceMetadataAction());
-                            }
-                            break;
-                        default:
-                            break;
+                for (BitbucketDefaultBranch p : ((Actionable) owner).getActions(BitbucketDefaultBranch.class)) {
+                    if (StringUtils.equals(getRepoOwner(), p.getRepoOwner())
+                            && StringUtils.equals(repository, p.getRepository())
+                            && StringUtils.equals(p.getDefaultBranch(), head.getName())) {
+                        result.add(new PrimaryInstanceMetadataAction());
+                        break;
                     }
                 }
             }
