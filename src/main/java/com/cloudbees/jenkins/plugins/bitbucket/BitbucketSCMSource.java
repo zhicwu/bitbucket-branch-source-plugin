@@ -36,6 +36,7 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Action;
@@ -60,7 +61,11 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -154,6 +159,12 @@ public class BitbucketSCMSource extends SCMSource {
      */
     private transient BitbucketApiConnector bitbucketConnector;
 
+    /**
+     * The cache of pull request titles for each open PR.
+     */
+    @NonNull
+    private transient /*effectively final*/ Map<String, String> pullRequestTitleCache;
+
     private static final Logger LOGGER = Logger.getLogger(BitbucketSCMSource.class.getName());
 
     @DataBoundConstructor
@@ -161,6 +172,16 @@ public class BitbucketSCMSource extends SCMSource {
         super(id);
         this.repoOwner = repoOwner;
         this.repository = repository;
+        this.pullRequestTitleCache = new ConcurrentHashMap<String, String>();
+    }
+
+    @SuppressFBWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE",
+                        justification = "Only non-null after we set them here!")
+    private Object readResolve() {
+        if (pullRequestTitleCache == null) {
+            pullRequestTitleCache = new ConcurrentHashMap<String, String>();
+        }
+        return this;
     }
 
     @CheckForNull
@@ -306,6 +327,7 @@ public class BitbucketSCMSource extends SCMSource {
         final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
         if (bitbucket.isPrivate()) {
             List<? extends BitbucketPullRequest> pulls = bitbucket.getPullRequests();
+            Set<String> livePRs = new HashSet<>();
             for (final BitbucketPullRequest pull : pulls) {
                 checkInterrupt();
                 listener.getLogger().println(
@@ -329,6 +351,8 @@ public class BitbucketSCMSource extends SCMSource {
                     continue;
                 }
                 if (hash != null) {
+                    pullRequestTitleCache.put(pull.getId(), pull.getTitle());
+                    livePRs.add(pull.getId());
                     observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
                             pull.getSource().getRepository().getRepositoryName(),
@@ -342,6 +366,7 @@ public class BitbucketSCMSource extends SCMSource {
                     return;
                 }
             }
+            pullRequestTitleCache.keySet().retainAll(livePRs);
         } else {
             listener.getLogger().format("Skipping pull requests for public repositories%n");
         }
@@ -644,22 +669,28 @@ public class BitbucketSCMSource extends SCMSource {
         String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
         if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
             String branchUrl;
+            String title;
             if (head instanceof PullRequestSCMHead) {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/pull-requests/"+pr.getId()+"/overview";
+                title = pullRequestTitleCache.get(pr.getId());
             } else {
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/compare/commits?sourceBranch=" +
                         URLEncoder.encode(Constants.R_HEADS + head.getName(), "UTF-8");
+                title = null;
             }
             result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
-            result.add(new ObjectMetadataAction(null, null, serverUrl+"/"+branchUrl));
+            result.add(new ObjectMetadataAction(title, null, serverUrl+"/"+branchUrl));
         } else {
             String branchUrl;
+            String title;
             if (head instanceof PullRequestSCMHead) {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = repoOwner + "/" + repository + "/pull-requests/" + pr.getId();
+                title = pullRequestTitleCache.get(pr.getId());
             } else {
                 branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
+                title = null;
             }
             SCMSourceOwner owner = getOwner();
             if (owner instanceof Actionable) {
@@ -673,7 +704,7 @@ public class BitbucketSCMSource extends SCMSource {
                 }
             }
             result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
-            result.add(new ObjectMetadataAction(null, null, serverUrl + "/" + branchUrl));
+            result.add(new ObjectMetadataAction(title, null, serverUrl + "/" + branchUrl));
         }
         return result;
     }
