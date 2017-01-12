@@ -642,8 +642,6 @@ public class BitbucketSCMSource extends SCMSource {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/pull-requests/"+pr.getId()+"/overview";
             } else {
-                https:
-//bitbucket.beescloud.com/projects/DUB/repos/stunning-adventure/compare/commits?sourceBranch=refs%2Fheads%2Forigin-pr-branch
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/compare/commits?sourceBranch=" +
                         URLEncoder.encode(Constants.R_HEADS + head.getName(), "UTF-8");
             }
