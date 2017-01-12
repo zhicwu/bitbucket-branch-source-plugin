@@ -617,11 +617,11 @@ public class BitbucketSCMSource extends SCMSource {
         if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
             result.add(new BitbucketLink("icon-bitbucket-repo",
                     serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
-            result.add(new ObjectMetadataAction(r.getFullName(), null,
+            result.add(new ObjectMetadataAction(r == null ? null : r.getFullName(), null,
                     serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
         } else {
             result.add(new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
-            result.add(new ObjectMetadataAction(r.getFullName(), null,
+            result.add(new ObjectMetadataAction(r == null ? null : r.getFullName(), null,
                     serverUrl + "/" + repoOwner + "/" + repository));
         }
         return result;
