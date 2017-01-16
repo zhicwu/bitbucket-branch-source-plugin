@@ -23,26 +23,27 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import java.util.LinkedList;
-import java.util.List;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestDestination;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestDestination;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestSource;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
+import edu.umd.cs.findbugs.annotations.NonNull;
+import java.io.ObjectStreamException;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import hudson.model.Action;
 import jenkins.scm.api.SCMHead;
+import jenkins.scm.api.actions.ChangeRequestAction;
 
 /**
- * {@link SCMHead} extended with additional information:
- * <ul>
- *   <li>{@link #repoOwner}: the repository owner</li>
- *   <li>{@link #repoName}: the repository name</li>
- *   <li>{@link #metadata}: metadata related to Pull Requests - null if this object is not representing a PR</li>
- * </ul>
- * This information is required in this plugin since {@link BitbucketSCMSource} is processing pull requests
- * and they are managed as separate repositories in Bitbucket without any reference to them in the destination
- * repository.
+ * Legacy class retained to allow for graceful migration of serialized data.
+ * @deprecated use {@link PullRequestSCMHead} or {@link BranchSCMHead}
  */
+@Deprecated
 public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private static final long serialVersionUID = 1L;
@@ -51,62 +52,21 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private final String repoName;
 
-    private PullRequestAction metadata = null;
+    private transient PullRequestAction metadata;
 
-    private static final String PR_BRANCH_PREFIX = "PR-";
-
-    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName, BitbucketPullRequest pr) {
+    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
         super(branchName);
         this.repoOwner = repoOwner;
         this.repoName = repoName;
-        if (pr != null) {
-            this.metadata = new PullRequestAction(pr);
-        }
     }
 
-    public SCMHeadWithOwnerAndRepo(String repoOwner, String repoName, String branchName) {
-        this(repoOwner, repoName, branchName, null);
-    }
-
-    public String getRepoOwner() {
-        return repoOwner;
-    }
-
-    public String getRepoName() {
-        return repoName;
-    }
-
-    /**
-     * @return the original branch name without the "PR-owner-" part.
-     */
-    public String getBranchName() {
-        return super.getName();
-    }
-
-    /**
-     * Returns the prettified branch name by adding "PR-[ID]" if the branch is coming from a PR.
-     * Use {@link #getBranchName()} to get the real branch name.
-     */
-    @Override
-    public String getName() {
-        return metadata != null ? PR_BRANCH_PREFIX + metadata.getId() : getBranchName();
-    }
-
-    @CheckForNull
-    public Integer getPullRequestId() {
+    private Object readResolve() throws ObjectStreamException {
         if (metadata != null) {
-            return Integer.parseInt(metadata.getId());
-        } else {
-            return null;
+            // we just want to flag this as a PR, the legacy data did not contain the required information so
+            // we will end up triggering a rebuild on next index / event via take-over
+            return new PullRequestSCMHead(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
         }
+        return new BranchSCMHead(getName());
     }
 
-    @Override
-    public List<? extends Action> getAllActions() {
-        List<Action> actions = new LinkedList<Action>(super.getAllActions());
-        if (metadata != null) {
-            actions.add(metadata);
-        }
-        return actions;
-    }
 }

@@ -23,53 +23,19 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-import edu.umd.cs.findbugs.annotations.NonNull;
-import java.net.MalformedURLException;
-import java.net.URL;
-import org.kohsuke.accmod.Restricted;
-import org.kohsuke.accmod.restrictions.DoNotUse;
-import org.kohsuke.accmod.restrictions.NoExternalUse;
+import jenkins.scm.api.SCMHead;
 
 /**
- * Retained to help migrate legacy SCMHead instances
+ * {@link SCMHead} for a BitBucket branch.
+ * @since FIXME
  */
-@Deprecated
-@Restricted(NoExternalUse.class)
-class PullRequestAction {
-    private final String number;
-    private URL url;
-    private final String title;
-    private final String userLogin;
-
-    public PullRequestAction(BitbucketPullRequest pr) {
-        number = pr.getId();
-        try {
-            url = new URL(pr.getLink());
-        } catch (MalformedURLException e) {
-            url = null;
-        }
-        title = pr.getTitle();
-        userLogin = pr.getAuthorLogin();
-    }
-
-    @NonNull
-    public String getId() {
-        return number;
-    }
-
-    public URL getURL() {
-        return url;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getAuthor() {
-        return userLogin;
-    }
+public class BranchSCMHead extends SCMHead {
 
     private static final long serialVersionUID = 1L;
+
+
+    public BranchSCMHead(String branchName) {
+        super(branchName);
+    }
 
 }

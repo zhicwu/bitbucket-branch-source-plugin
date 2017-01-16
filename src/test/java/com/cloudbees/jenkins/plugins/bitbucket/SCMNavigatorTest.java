@@ -29,6 +29,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,7 @@ import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceObserver;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceObserver.ProjectObserver;
+import org.mockito.Mockito;
 
 public class SCMNavigatorTest {
 
@@ -51,7 +53,8 @@ public class SCMNavigatorTest {
         BitbucketSCMNavigator navigator = new BitbucketSCMNavigator("myteam", null, null);
         navigator.setPattern("repo(.*)");
         navigator.setBitbucketConnector(getConnectorMock(RepositoryType.GIT, true));
-        SCMSourceObserverImpl observer = new SCMSourceObserverImpl(BitbucketClientMockUtils.getTaskListenerMock());
+        SCMSourceObserverImpl observer = new SCMSourceObserverImpl(BitbucketClientMockUtils.getTaskListenerMock(),
+                Mockito.mock(SCMSourceOwner.class));
         navigator.visitSources(observer);
 
         assertEquals("myteam", navigator.getRepoOwner());
@@ -80,23 +83,28 @@ public class SCMNavigatorTest {
         List<String> observed = new ArrayList<String>();
         List<ProjectObserver> projectObservers = new ArrayList<SCMSourceObserver.ProjectObserver>();
         TaskListener listener;
+        SCMSourceOwner owner;
 
-        public SCMSourceObserverImpl(TaskListener listener) {
+        public SCMSourceObserverImpl(TaskListener listener, SCMSourceOwner owner) {
             this.listener = listener;
+            this.owner = owner;
         }
 
+        @NonNull
         @Override
         public SCMSourceOwner getContext() {
-            return null;
+            return owner;
         }
 
+        @NonNull
         @Override
         public TaskListener getListener() {
             return listener;
         }
 
+        @NonNull
         @Override
-        public ProjectObserver observe(String projectName) throws IllegalArgumentException {
+        public ProjectObserver observe(@NonNull String projectName) throws IllegalArgumentException {
             observed.add(projectName);
             ProjectObserverImpl obs = new ProjectObserverImpl();
             projectObservers.add(obs);
@@ -104,7 +112,7 @@ public class SCMNavigatorTest {
         }
 
         @Override
-        public void addAttribute(String key, Object value) throws IllegalArgumentException, ClassCastException {
+        public void addAttribute(@NonNull String key, Object value) throws IllegalArgumentException, ClassCastException {
         }
 
         public List<String> getObserved() {
@@ -120,12 +128,12 @@ public class SCMNavigatorTest {
             private List<SCMSource> sources = new ArrayList<SCMSource>();
 
             @Override
-            public void addSource(SCMSource source) {
+            public void addSource(@NonNull SCMSource source) {
                 sources.add(source);
             }
 
             @Override
-            public void addAttribute(String key, Object value) throws IllegalArgumentException, ClassCastException {
+            public void addAttribute(@NonNull String key, Object value) throws IllegalArgumentException, ClassCastException {
             }
 
             @Override

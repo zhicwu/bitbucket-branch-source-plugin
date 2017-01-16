@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016 CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,30 +20,23 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+ *
  */
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
-import java.util.Map;
-
 /**
- * Represents a Bitbucket team (or a Project when working with Bitbucket Server).
+ * Represents a pull request destination, which is a repository and a branch in that repository.
  */
-public interface BitbucketTeam {
+public interface BitbucketPullRequestDestination {
 
     /**
-     * @return team or project name
+     * @return source repository
      */
-    String getName();
+    BitbucketRepository getRepository();
 
     /**
-     * @return team or project display name.
+     * @return source branch to be merged in the pull request
      */
-    String getDisplayName();
+    BitbucketBranch getBranch();
 
-    /**
-     * Gets the links of the project.
-     *
-     * @return the links of the project.
-     */
-    Map<String,BitbucketHref> getLinks();
 }

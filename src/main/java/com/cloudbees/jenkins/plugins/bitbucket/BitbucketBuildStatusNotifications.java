@@ -119,18 +119,6 @@ public class BitbucketBuildStatusNotifications {
     }
 
     @CheckForNull
-    private static BitbucketApi buildBitbucketClientForBuild(Run<?,?> build, BitbucketSCMSource source) {
-        Job<?, ?> job = build.getParent();
-        StandardUsernamePasswordCredentials creds = source.getScanCredentials();
-        SCMHead _head = SCMHead.HeadByItem.findHead(job);
-        if (_head instanceof SCMHeadWithOwnerAndRepo) {
-            SCMHeadWithOwnerAndRepo head = (SCMHeadWithOwnerAndRepo) _head;
-            return new BitbucketApiConnector(source.getBitbucketServerUrl()).create(head.getRepoOwner(), head.getRepoName(), creds);
-        }
-        return null;
-    }
-
-    @CheckForNull
     private static BitbucketSCMSource lookUpSCMSource(Run<?, ?> build) {
         ItemGroup<?> multiBranchProject = build.getParent().getParent();
         if (multiBranchProject instanceof SCMSourceOwner) {
@@ -165,18 +153,13 @@ public class BitbucketBuildStatusNotifications {
     private static void sendNotifications(Run<?, ?> build, TaskListener listener) {
         BitbucketSCMSource source = lookUpSCMSource(build);
         if (source != null && extractRevision(build) != null) {
-            BitbucketApi bitbucket = buildBitbucketClientForBuild(build, source);
-            if (bitbucket != null) {
-                if (source.getRepoOwner().equals(bitbucket.getOwner()) &&
-                        source.getRepository().equals(bitbucket.getRepositoryName())) {
-                    listener.getLogger().println("[Bitbucket] Notifying commit build result");
-                    createBuildCommitStatus(build, listener, bitbucket);
-                } else {
-                    listener.getLogger().println("[Bitbucket] Notifying pull request build result");
-                    createPullRequestCommitStatus(build, listener, bitbucket);
-                }
+            SCMHead head = SCMHead.HeadByItem.findHead(build.getParent());
+            if (head instanceof PullRequestSCMHead) {
+                listener.getLogger().println("[Bitbucket] Notifying pull request build result");
+                createPullRequestCommitStatus(build, listener, source.buildBitbucketClient((PullRequestSCMHead) head));
             } else {
-                listener.getLogger().println("[Bitbucket] Can not get connection information from the source. Skipping notification...");
+                listener.getLogger().println("[Bitbucket] Notifying commit build result");
+                createBuildCommitStatus(build, listener, source.buildBitbucketClient());
             }
         }
     }
