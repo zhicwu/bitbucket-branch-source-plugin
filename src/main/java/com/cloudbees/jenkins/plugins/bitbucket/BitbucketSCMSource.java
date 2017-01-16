@@ -341,7 +341,7 @@ public class BitbucketSCMSource extends SCMSource {
                     continue;
                 }
                 if (hash != null) {
-                    getPullRequestTitleCache().put(pull.getId(), pull.getTitle());
+                    getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
                     livePRs.add(pull.getId());
                     observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
