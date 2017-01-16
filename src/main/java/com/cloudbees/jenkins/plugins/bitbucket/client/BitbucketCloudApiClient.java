@@ -229,6 +229,18 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return status == HttpStatus.SC_OK;
     }
 
+    @Override
+    public String getDefaultBranch() {
+        String response = getRequest(V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/main-branch");
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.readTree(response).get("name").getTextValue();
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "invalid default branch response.", e);
+        }
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override
     public List<BitbucketCloudBranch> getBranches() {

@@ -43,6 +43,10 @@ public class BitbucketRepoMetadataAction extends AvatarMetadataAction{
         this.scm = scm;
     }
 
+    public String getScm() {
+        return scm;
+    }
+
     /**
      * {@inheritDoc}
      */
