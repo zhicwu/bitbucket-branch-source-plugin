@@ -162,7 +162,7 @@ public class BitbucketSCMSource extends SCMSource {
     /**
      * The cache of pull request titles for each open PR.
      */
-    @NonNull
+    @CheckForNull
     private transient /*effectively final*/ Map<String, String> pullRequestTitleCache;
 
     private static final Logger LOGGER = Logger.getLogger(BitbucketSCMSource.class.getName());
@@ -172,16 +172,6 @@ public class BitbucketSCMSource extends SCMSource {
         super(id);
         this.repoOwner = repoOwner;
         this.repository = repository;
-        this.pullRequestTitleCache = new ConcurrentHashMap<String, String>();
-    }
-
-    @SuppressFBWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE",
-                        justification = "Only non-null after we set them here!")
-    private Object readResolve() {
-        if (pullRequestTitleCache == null) {
-            pullRequestTitleCache = new ConcurrentHashMap<String, String>();
-        }
-        return this;
     }
 
     @CheckForNull
@@ -351,7 +341,7 @@ public class BitbucketSCMSource extends SCMSource {
                     continue;
                 }
                 if (hash != null) {
-                    pullRequestTitleCache.put(pull.getId(), pull.getTitle());
+                    getPullRequestTitleCache().put(pull.getId(), pull.getTitle());
                     livePRs.add(pull.getId());
                     observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
@@ -366,7 +356,7 @@ public class BitbucketSCMSource extends SCMSource {
                     return;
                 }
             }
-            pullRequestTitleCache.keySet().retainAll(livePRs);
+            getPullRequestTitleCache().keySet().retainAll(livePRs);
         } else {
             listener.getLogger().format("Skipping pull requests for public repositories%n");
         }
@@ -673,7 +663,7 @@ public class BitbucketSCMSource extends SCMSource {
             if (head instanceof PullRequestSCMHead) {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/pull-requests/"+pr.getId()+"/overview";
-                title = pullRequestTitleCache.get(pr.getId());
+                title = getPullRequestTitleCache().get(pr.getId());
             } else {
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/compare/commits?sourceBranch=" +
                         URLEncoder.encode(Constants.R_HEADS + head.getName(), "UTF-8");
@@ -687,7 +677,7 @@ public class BitbucketSCMSource extends SCMSource {
             if (head instanceof PullRequestSCMHead) {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = repoOwner + "/" + repository + "/pull-requests/" + pr.getId();
-                title = pullRequestTitleCache.get(pr.getId());
+                title = getPullRequestTitleCache().get(pr.getId());
             } else {
                 branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
                 title = null;
@@ -707,6 +697,14 @@ public class BitbucketSCMSource extends SCMSource {
             result.add(new ObjectMetadataAction(title, null, serverUrl + "/" + branchUrl));
         }
         return result;
+    }
+
+    @NonNull
+    private synchronized Map<String, String> getPullRequestTitleCache() {
+        if (pullRequestTitleCache == null) {
+            pullRequestTitleCache = new ConcurrentHashMap<>();
+        }
+        return pullRequestTitleCache;
     }
 
     @Extension
