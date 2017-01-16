@@ -682,19 +682,19 @@ public class BitbucketSCMSource extends SCMSource {
                 branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
                 title = null;
             }
-            SCMSourceOwner owner = getOwner();
-            if (owner instanceof Actionable) {
-                for (BitbucketDefaultBranch p : ((Actionable) owner).getActions(BitbucketDefaultBranch.class)) {
-                    if (StringUtils.equals(getRepoOwner(), p.getRepoOwner())
-                            && StringUtils.equals(repository, p.getRepository())
-                            && StringUtils.equals(p.getDefaultBranch(), head.getName())) {
-                        result.add(new PrimaryInstanceMetadataAction());
-                        break;
-                    }
-                }
-            }
             result.add(new BitbucketLink("icon-bitbucket-branch", serverUrl + "/" + branchUrl));
             result.add(new ObjectMetadataAction(title, null, serverUrl + "/" + branchUrl));
+        }
+        SCMSourceOwner owner = getOwner();
+        if (owner instanceof Actionable) {
+            for (BitbucketDefaultBranch p : ((Actionable) owner).getActions(BitbucketDefaultBranch.class)) {
+                if (StringUtils.equals(getRepoOwner(), p.getRepoOwner())
+                        && StringUtils.equals(repository, p.getRepository())
+                        && StringUtils.equals(p.getDefaultBranch(), head.getName())) {
+                    result.add(new PrimaryInstanceMetadataAction());
+                    break;
+                }
+            }
         }
         return result;
     }
