@@ -23,21 +23,24 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestDestination;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestDestination;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequestSource;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
-import edu.umd.cs.findbugs.annotations.NonNull;
-import java.io.ObjectStreamException;
-import java.net.MalformedURLException;
-import java.net.URL;
-
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-
+import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.Extension;
+import java.io.ObjectStreamException;
+import java.lang.ref.SoftReference;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import jenkins.plugins.git.AbstractGitSCMSource;
 import jenkins.scm.api.SCMHead;
-import jenkins.scm.api.actions.ChangeRequestAction;
+import jenkins.scm.api.SCMHeadMigration;
+import jenkins.scm.api.SCMRevision;
+import jenkins.scm.api.mixin.ChangeRequestSCMHead;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 /**
  * Legacy class retained to allow for graceful migration of serialized data.
@@ -45,6 +48,9 @@ import jenkins.scm.api.actions.ChangeRequestAction;
  */
 @Deprecated
 public class SCMHeadWithOwnerAndRepo extends SCMHead {
+
+    private static final Logger LOGGER = Logger.getLogger(SCMHeadWithOwnerAndRepo.class.getName());
+    private static final Map<BitbucketSCMSource, SoftReference<Map<String, String>>> cache = new WeakHashMap<>();
 
     private static final long serialVersionUID = 1L;
 
@@ -62,11 +68,123 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
     private Object readResolve() throws ObjectStreamException {
         if (metadata != null) {
-            // we just want to flag this as a PR, the legacy data did not contain the required information so
-            // we will end up triggering a rebuild on next index / event via take-over
-            return new PullRequestSCMHead(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
+            // we just want to flag this as a PR, the legacy data did not contain the required information
+            // then the temporary PR class will be resolved by HgMigrationImpl or GitMigrationImpl when the
+            // context to look-up the correct target is (hopefully) available. If the context is not available
+            // then worst case  we will end up triggering a rebuild on next index / event via take-over
+            return new PR(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
         }
         return new BranchSCMHead(getName());
+    }
+
+    /**
+     * Marker class to ensure that we do not attempt apply an {@link SCMHeadMigration} on all
+     * {@link PullRequestSCMHead} instances, rather we only apply it on ones that need migration. We need to use a
+     * {@link ChangeRequestSCMHead} in order to retain the correct categorization of {@link SCMHead} instances
+     * in the event that the {@link HgMigrationImpl} or {@link GitMigrationImpl} fail to resolve the target.
+     */
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    public static class PR extends PullRequestSCMHead {
+
+        public PR(String repoOwner, String repository, String branchName, String number,
+                  BranchSCMHead target) {
+            super(repoOwner, repository, branchName, number, target);
+        }
+    }
+
+    private static Map<String, String> getTargets(BitbucketSCMSource source) {
+        synchronized (cache) {
+            SoftReference<Map<String, String>> ref = cache.get(source);
+            Map<String, String> targets = ref.get();
+            if (targets != null) {
+                return targets;
+            }
+        }
+        Map<String, String> targets = new HashMap<>();
+        try {
+            final BitbucketApi bitbucket = source.getBitbucketConnector()
+                    .create(source.getRepoOwner(), source.getRepository(), source.getScanCredentials());
+            for (BitbucketPullRequest pr : bitbucket.getPullRequests()) {
+                targets.put(pr.getId(), pr.getDestination().getBranch().getName());
+            }
+        } catch (RuntimeException e) {
+            // log this at fine as we give the usage based detail later.
+            LOGGER.log(Level.FINE, "Cannot resolve pull request targets", e);
+        }
+        synchronized (cache) {
+            cache.put(source, new SoftReference<Map<String, String>>(targets));
+        }
+        return targets;
+    }
+
+
+    @Restricted(NoExternalUse.class)
+    @Extension
+    public static class HgMigrationImpl extends SCMHeadMigration<BitbucketSCMSource, PR, BitbucketSCMSource.MercurialRevision>{
+
+        public HgMigrationImpl() {
+            super(BitbucketSCMSource.class, PR.class, BitbucketSCMSource.MercurialRevision.class);
+        }
+
+        @Override
+        public SCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
+            Map<String, String> targets = getTargets(source);
+            String target = targets.get(head.getId());
+            if (target == null) {
+                LOGGER.log(Level.WARNING, "Could not determine target branch for PR {0}. This may result in a rebuild",
+                        head.getId());
+                target = "\u0000";
+            }
+            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getName(), head.getId(),
+                    new BranchSCMHead(target));
+        }
+
+        @Override
+        public SCMRevision migrate(@NonNull BitbucketSCMSource source,
+                                   @NonNull BitbucketSCMSource.MercurialRevision revision) {
+            if (revision.getHead() instanceof PR) {
+                return new BitbucketSCMSource.MercurialRevision(
+                        migrate(source, (PR) revision.getHead()),
+                        revision.getHash()
+                );
+            }
+            return null;
+        }
+    }
+
+    @Restricted(NoExternalUse.class)
+    @Extension
+    public static class GitMigrationImpl extends SCMHeadMigration<BitbucketSCMSource, PR, AbstractGitSCMSource.SCMRevisionImpl>{
+
+        public GitMigrationImpl() {
+            super(BitbucketSCMSource.class, PR.class, AbstractGitSCMSource.SCMRevisionImpl.class);
+        }
+
+        @Override
+        public SCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
+            Map<String, String> targets = getTargets(source);
+            String target = targets.get(head.getId());
+            if (target == null) {
+                LOGGER.log(Level.WARNING, "Could not determine target branch for PR {0}. This may result in a rebuild",
+                        head.getId());
+                target = "\u0000";
+            }
+            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getName(), head.getId(),
+                    new BranchSCMHead(target));
+        }
+
+        @Override
+        public SCMRevision migrate(@NonNull BitbucketSCMSource source,
+                                   @NonNull AbstractGitSCMSource.SCMRevisionImpl revision) {
+            if (revision.getHead() instanceof PR) {
+                return new AbstractGitSCMSource.SCMRevisionImpl(
+                        migrate(source, (PR) revision.getHead()),
+                        revision.getHash()
+                );
+            }
+            return null;
+        }
     }
 
 }

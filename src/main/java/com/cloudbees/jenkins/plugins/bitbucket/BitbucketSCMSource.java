@@ -262,7 +262,7 @@ public class BitbucketSCMSource extends SCMSource {
         this.bitbucketConnector = bitbucketConnector;
     }
 
-    private BitbucketApiConnector getBitbucketConnector() {
+    BitbucketApiConnector getBitbucketConnector() {
         if (bitbucketConnector == null) {
             bitbucketConnector = new BitbucketApiConnector(bitbucketServerUrl);
         }
