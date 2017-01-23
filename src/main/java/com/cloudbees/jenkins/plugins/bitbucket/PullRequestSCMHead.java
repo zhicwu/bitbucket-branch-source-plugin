@@ -25,6 +25,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import java.io.ObjectStreamException;
 import jenkins.scm.api.mixin.ChangeRequestSCMHead;
 import jenkins.scm.api.SCMHead;
 
@@ -65,6 +66,14 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead 
         this.branchName = branchName;
         this.number = pr.getId();
         this.target = new BranchSCMHead(pr.getDestination().getBranch().getName());
+    }
+
+    private Object readResolve() throws ObjectStreamException {
+        if ("\u0000".equals(getTarget().getName())) {
+            // this was a migration during upgrade to 2.0.0 but has not been rebuilt yet, let's see if we can fix it
+            return new SCMHeadWithOwnerAndRepo.PR(repoOwner, repository, getBranchName(), number, target);
+        }
+        return this;
     }
 
     public String getRepoOwner() {

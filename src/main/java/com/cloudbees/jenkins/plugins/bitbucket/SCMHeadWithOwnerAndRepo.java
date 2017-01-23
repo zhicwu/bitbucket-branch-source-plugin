@@ -136,7 +136,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                         head.getId());
                 target = "\u0000";
             }
-            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getName(), head.getId(),
+            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
                     new BranchSCMHead(target));
         }
 
@@ -170,7 +170,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                         head.getId());
                 target = "\u0000";
             }
-            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getName(), head.getId(),
+            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
                     new BranchSCMHead(target));
         }
 
