@@ -25,6 +25,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ObjectStreamException;
 import jenkins.scm.api.mixin.ChangeRequestSCMHead;
 import jenkins.scm.api.SCMHead;
@@ -68,6 +69,7 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead 
         this.target = new BranchSCMHead(pr.getDestination().getBranch().getName());
     }
 
+    @SuppressFBWarnings("SE_PRIVATE_READ_RESOLVE_NOT_INHERITED") // because JENKINS-41313
     private Object readResolve() throws ObjectStreamException {
         if ("\u0000".equals(getTarget().getName())) {
             // this was a migration during upgrade to 2.0.0 but has not been rebuilt yet, let's see if we can fix it

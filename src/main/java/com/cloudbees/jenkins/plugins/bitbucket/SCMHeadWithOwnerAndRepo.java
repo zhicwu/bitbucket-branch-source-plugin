@@ -143,13 +143,9 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         @Override
         public SCMRevision migrate(@NonNull BitbucketSCMSource source,
                                    @NonNull BitbucketSCMSource.MercurialRevision revision) {
-            if (revision.getHead() instanceof PR) {
-                return new BitbucketSCMSource.MercurialRevision(
-                        migrate(source, (PR) revision.getHead()),
-                        revision.getHash()
-                );
-            }
-            return null;
+
+            SCMHead head = migrate(source, (PR) revision.getHead());
+            return head != null ? new BitbucketSCMSource.MercurialRevision(head, revision.getHash()) : null;
         }
     }
 
@@ -177,13 +173,8 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         @Override
         public SCMRevision migrate(@NonNull BitbucketSCMSource source,
                                    @NonNull AbstractGitSCMSource.SCMRevisionImpl revision) {
-            if (revision.getHead() instanceof PR) {
-                return new AbstractGitSCMSource.SCMRevisionImpl(
-                        migrate(source, (PR) revision.getHead()),
-                        revision.getHash()
-                );
-            }
-            return null;
+            SCMHead head = migrate(source, (PR) revision.getHead());
+            return head != null ? new AbstractGitSCMSource.SCMRevisionImpl(head, revision.getHash()) : null;
         }
     }
 
