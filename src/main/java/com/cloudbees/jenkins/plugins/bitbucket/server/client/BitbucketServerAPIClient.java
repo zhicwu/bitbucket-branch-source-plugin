@@ -26,6 +26,8 @@ package com.cloudbees.jenkins.plugins.bitbucket.server.client;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,8 +38,10 @@ import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.commons.httpclient.URIException;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
@@ -85,6 +89,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     private static final String API_BASE_PATH = "/rest/api/1.0";
     private static final String API_REPOSITORIES_PATH = API_BASE_PATH + "/projects/%s/repos?start=%s";
     private static final String API_REPOSITORY_PATH = API_BASE_PATH + "/projects/%s/repos/%s";
+    private static final String API_DEFAULT_BRANCH_PATH = API_BASE_PATH + "/projects/%s/repos/%s/branches/default";
     private static final String API_BRANCHES_PATH = API_BASE_PATH + "/projects/%s/repos/%s/branches?start=%s";
     private static final String API_PULL_REQUESTS_PATH = API_BASE_PATH + "/projects/%s/repos/%s/pull-requests?start=%s";
     private static final String API_PULL_REQUEST_PATH = API_BASE_PATH + "/projects/%s/repos/%s/pull-requests/%s";
@@ -256,6 +261,17 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return status == HttpStatus.SC_OK;
     }
 
+    @Override
+    public String getDefaultBranch() {
+        String response = getRequest(String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName));
+        try {
+            return parse(response, BitbucketServerBranch.class).getName();
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "invalid commit response.", e);
+        }
+        return null;
+    }
+
     /** {@inheritDoc} */
     @Override
     public List<BitbucketServerBranch> getBranches() {
@@ -393,9 +409,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     private String getRequest(String path) {
-        HttpClient client = getHttpClient();
-        client.getState().setCredentials(AuthScope.ANY, credentials);
         GetMethod httpget = new GetMethod(this.baseURL + path);
+        HttpClient client = getHttpClient(getMethodHost(httpget));
+        client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
         String response = null;
         InputStream responseBodyAsStream = null;
@@ -420,35 +436,46 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return response;
     }
 
-    private HttpClient getHttpClient() {
+    private HttpClient getHttpClient(String host) {
         HttpClient client = new HttpClient();
 
         client.getParams().setConnectionManagerTimeout(10 * 1000);
         client.getParams().setSoTimeout(60 * 1000);
 
+        setClientProxyParams(host, client);
+        return client;
+    }
+
+    private static void setClientProxyParams(String host, HttpClient client) {
         Jenkins jenkins = Jenkins.getInstance();
-        ProxyConfiguration proxy = null;
+        ProxyConfiguration proxyConfig = null;
         if (jenkins != null) {
-            proxy = jenkins.proxy;
+            proxyConfig = jenkins.proxy;
         }
-        if (proxy != null) {
-            LOGGER.info("Jenkins proxy: " + proxy.name + ":" + proxy.port);
-            client.getHostConfiguration().setProxy(proxy.name, proxy.port);
-            String username = proxy.getUserName();
-            String password = proxy.getPassword();
+
+        Proxy proxy = Proxy.NO_PROXY;
+        if (proxyConfig != null) {
+            proxy = proxyConfig.createProxy(host);
+        }
+
+        if (proxy.type() != Proxy.Type.DIRECT) {
+            final InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
+            LOGGER.fine("Jenkins proxy: " + proxy.address());
+            client.getHostConfiguration().setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
+            String username = proxyConfig.getUserName();
+            String password = proxyConfig.getPassword();
             if (username != null && !"".equals(username.trim())) {
-                LOGGER.info("Using proxy authentication (user=" + username + ")");
+                LOGGER.fine("Using proxy authentication (user=" + username + ")");
                 client.getState().setProxyCredentials(AuthScope.ANY,
                     new UsernamePasswordCredentials(username, password));
             }
         }
-        return client;
     }
 
     private int getRequestStatus(String path) {
-        HttpClient client = getHttpClient();
-        client.getState().setCredentials(AuthScope.ANY, credentials);
         GetMethod httpget = new GetMethod(this.baseURL + path);
+        HttpClient client = getHttpClient(getMethodHost(httpget));
+        client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
         try {
             client.executeMethod(httpget);
@@ -459,6 +486,14 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             httpget.releaseConnection();
         }
         return -1;
+    }
+
+    private static String getMethodHost(HttpMethod method) {
+        try {
+            return method.getURI().getHost();
+        } catch (URIException e) {
+            throw new IllegalStateException("Could not obtain host part for method " + method, e);
+        }
     }
 
     private <T> String serialize(T o) throws IOException {
@@ -498,7 +533,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     private String doRequest(HttpMethod httpMethod) {
-        HttpClient client = getHttpClient();
+        HttpClient client = getHttpClient(getMethodHost(httppost));
         client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
         String response = null;

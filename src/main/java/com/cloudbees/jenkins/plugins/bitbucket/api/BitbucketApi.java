@@ -82,6 +82,12 @@ public interface BitbucketApi {
     boolean checkPathExists(String branch, String path);
 
     /**
+     * Gets the default branch in the repository.
+     * @return the default branch in the repository.
+     */
+    String getDefaultBranch();
+
+    /**
      * @return the list of branches in the repository.
      */
     List<? extends BitbucketBranch> getBranches();

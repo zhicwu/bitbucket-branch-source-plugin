@@ -23,6 +23,8 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import hudson.model.Queue;
+import hudson.model.queue.Tasks;
 import java.util.List;
 
 import javax.annotation.CheckForNull;
@@ -44,6 +46,7 @@ import hudson.Util;
 import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import jenkins.scm.api.SCMSourceOwner;
+import org.apache.commons.lang.StringUtils;
 
 public class BitbucketApiConnector {
 
@@ -74,30 +77,48 @@ public class BitbucketApiConnector {
 
     @CheckForNull 
     public <T extends StandardCredentials> T lookupCredentials(@CheckForNull SCMSourceOwner context, @CheckForNull String id, Class<T> type) {
-        if (Util.fixEmpty(id) == null) {
-            return null;
-        } else {
-            if (id != null) {
-                return CredentialsMatchers.firstOrNull(
-                          CredentialsProvider.lookupCredentials(type, context, ACL.SYSTEM,
-                          bitbucketDomainRequirements()), 
-                          CredentialsMatchers.allOf(
-                              CredentialsMatchers.withId(id),
-                              CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(type))));
-            }
-            return null;
+        if (StringUtils.isNotBlank(id)) {
+            return CredentialsMatchers.firstOrNull(
+                      CredentialsProvider.lookupCredentials(
+                              type,
+                              context,
+                              context instanceof Queue.Task
+                                      ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                                      : ACL.SYSTEM,
+                              bitbucketDomainRequirements()
+                      ),
+                      CredentialsMatchers.allOf(
+                          CredentialsMatchers.withId(id),
+                          CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(type))
+                      )
+            );
         }
+        return null;
     }
 
-    public ListBoxModel fillCheckoutCredentials(StandardListBoxModel result, SCMSourceOwner context) {
-        result.withMatching(bitbucketCheckoutCredentialsMatcher(), CredentialsProvider.lookupCredentials(
-                StandardCredentials.class, context, ACL.SYSTEM, bitbucketDomainRequirements()));
+    public StandardListBoxModel fillCheckoutCredentials(StandardListBoxModel result, SCMSourceOwner context) {
+        result.includeMatchingAs(
+                context instanceof Queue.Task
+                ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                : ACL.SYSTEM,
+                context,
+                StandardCredentials.class,
+                bitbucketDomainRequirements(),
+                bitbucketCheckoutCredentialsMatcher()
+        );
         return result;
     }
 
-    public ListBoxModel fillCredentials(StandardListBoxModel result, SCMSourceOwner context) {
-        result.withMatching(bitbucketCredentialsMatcher(), CredentialsProvider.lookupCredentials(
-                StandardUsernameCredentials.class, context, ACL.SYSTEM, bitbucketDomainRequirements()));
+    public StandardListBoxModel fillCredentials(StandardListBoxModel result, SCMSourceOwner context) {
+        result.includeMatchingAs(
+                context instanceof Queue.Task
+                ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                : ACL.SYSTEM,
+                context,
+                StandardUsernameCredentials.class,
+                bitbucketDomainRequirements(),
+                bitbucketCredentialsMatcher()
+        );
         return result;
     }
 
