@@ -23,6 +23,27 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.server.client;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.*;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranch;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranches;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequests;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.*;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import hudson.ProxyConfiguration;
+import hudson.util.Secret;
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
+import org.apache.commons.httpclient.*;
+import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.methods.*;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.codehaus.jackson.map.ObjectMapper;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -33,51 +54,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.DeleteMethod;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.PutMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-import org.codehaus.jackson.map.ObjectMapper;
-
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranch;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranches;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerCommit;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequests;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerProject;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepositories;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhook;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhooks;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-
-import hudson.ProxyConfiguration;
-import hudson.util.Secret;
-import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
 
 /**
  * Bitbucket API client.
@@ -168,7 +144,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
      *
      * This method returns the appropriate string to be placed in request URLs taking into account if this client
      * object was created as a user centric instance or not.
-     * 
+     *
      * @return the ~user or project
      */
     public String getUserCentricOwner() {
@@ -459,7 +435,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
 
         if (proxy.type() != Proxy.Type.DIRECT) {
-            final InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
+            final InetSocketAddress proxyAddress = (InetSocketAddress) proxy.address();
             LOGGER.fine("Jenkins proxy: " + proxy.address());
             client.getHostConfiguration().setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
             String username = proxyConfig.getUserName();
@@ -467,7 +443,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             if (username != null && !"".equals(username.trim())) {
                 LOGGER.fine("Using proxy authentication (user=" + username + ")");
                 client.getState().setProxyCredentials(AuthScope.ANY,
-                    new UsernamePasswordCredentials(username, password));
+                        new UsernamePasswordCredentials(username, password));
             }
         }
     }
@@ -533,7 +509,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     private String doRequest(HttpMethod httpMethod) {
-        HttpClient client = getHttpClient(getMethodHost(httppost));
+        HttpClient client = getHttpClient(getMethodHost(httpMethod));
         client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
         String response = null;
