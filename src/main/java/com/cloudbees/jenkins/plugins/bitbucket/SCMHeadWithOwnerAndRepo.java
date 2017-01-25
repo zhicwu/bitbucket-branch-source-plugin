@@ -96,7 +96,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
     private static Map<String, String> getTargets(BitbucketSCMSource source) {
         synchronized (cache) {
             SoftReference<Map<String, String>> ref = cache.get(source);
-            Map<String, String> targets = ref.get();
+            Map<String, String> targets = ref == null ? null : ref.get();
             if (targets != null) {
                 return targets;
             }
