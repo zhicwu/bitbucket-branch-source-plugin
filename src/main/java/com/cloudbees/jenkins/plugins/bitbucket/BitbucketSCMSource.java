@@ -81,6 +81,7 @@ import jenkins.scm.api.SCMSourceCriteria;
 import jenkins.scm.api.SCMSourceDescriptor;
 import jenkins.scm.api.SCMSourceEvent;
 import jenkins.scm.api.SCMSourceOwner;
+import jenkins.scm.api.metadata.ContributorMetadataAction;
 import jenkins.scm.api.metadata.ObjectMetadataAction;
 import jenkins.scm.api.metadata.PrimaryInstanceMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
@@ -164,6 +165,11 @@ public class BitbucketSCMSource extends SCMSource {
      */
     @CheckForNull
     private transient /*effectively final*/ Map<String, String> pullRequestTitleCache;
+    /**
+     * The cache of pull request contributors for each open PR.
+     */
+    @CheckForNull
+    private transient /*effectively final*/ Map<String, ContributorMetadataAction> pullRequestContributorCache;
 
     private static final Logger LOGGER = Logger.getLogger(BitbucketSCMSource.class.getName());
 
@@ -343,6 +349,10 @@ public class BitbucketSCMSource extends SCMSource {
                 if (hash != null) {
                     getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
                     livePRs.add(pull.getId());
+                    getPullRequestContributorCache().put(pull.getId(),
+                            // TODO get more details on the author
+                            new ContributorMetadataAction(pull.getAuthorLogin(), null, null)
+                    );
                     observe(criteria, observer, listener,
                             pull.getSource().getRepository().getOwnerName(),
                             pull.getSource().getRepository().getRepositoryName(),
@@ -357,6 +367,7 @@ public class BitbucketSCMSource extends SCMSource {
                 }
             }
             getPullRequestTitleCache().keySet().retainAll(livePRs);
+            getPullRequestContributorCache().keySet().retainAll(livePRs);
         } else {
             listener.getLogger().format("Skipping pull requests for public repositories%n");
         }
@@ -664,6 +675,10 @@ public class BitbucketSCMSource extends SCMSource {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/pull-requests/"+pr.getId()+"/overview";
                 title = getPullRequestTitleCache().get(pr.getId());
+                ContributorMetadataAction contributor = getPullRequestContributorCache().get(pr.getId());
+                if (contributor != null) {
+                    result.add(contributor);
+                }
             } else {
                 branchUrl = "projects/" + repoOwner + "/repos/" + repository + "/compare/commits?sourceBranch=" +
                         URLEncoder.encode(Constants.R_HEADS + head.getName(), "UTF-8");
@@ -678,6 +693,10 @@ public class BitbucketSCMSource extends SCMSource {
                 PullRequestSCMHead pr = (PullRequestSCMHead) head;
                 branchUrl = repoOwner + "/" + repository + "/pull-requests/" + pr.getId();
                 title = getPullRequestTitleCache().get(pr.getId());
+                ContributorMetadataAction contributor = getPullRequestContributorCache().get(pr.getId());
+                if (contributor != null) {
+                    result.add(contributor);
+                }
             } else {
                 branchUrl = repoOwner + "/" + repository + "/branch/" + head.getName();
                 title = null;
@@ -705,6 +724,14 @@ public class BitbucketSCMSource extends SCMSource {
             pullRequestTitleCache = new ConcurrentHashMap<>();
         }
         return pullRequestTitleCache;
+    }
+
+    @NonNull
+    private synchronized Map<String, ContributorMetadataAction> getPullRequestContributorCache() {
+        if (pullRequestContributorCache == null) {
+            pullRequestContributorCache = new ConcurrentHashMap<>();
+        }
+        return pullRequestContributorCache;
     }
 
     @Extension
