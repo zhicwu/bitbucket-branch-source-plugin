@@ -115,29 +115,29 @@ public class WebhookAutoRegisterListener extends ItemListener {
 
     // synchronized just to avoid duplicated webhooks in case SCMSourceOwner is updated repeteadly and quickly
     private synchronized void registerHooks(SCMSourceOwner owner) throws IOException, InterruptedException {
-        List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
-        for (BitbucketSCMSource source : sources) {
-            if (source.isAutoRegisterHook()) {
-                BitbucketApi bitbucket = source.buildBitbucketClient();
-                List<? extends BitbucketWebHook> existent = bitbucket.getWebHooks();
-                boolean exists = false;
-                for (BitbucketWebHook hook : existent) {
-                    // Check if there is a hook pointing to us already
-                    if (hook.getUrl().equals(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH)) {
-                        exists = true;
-                        break;
+        String rootUrl = Jenkins.getActiveInstance().getRootUrl();
+        if (rootUrl != null && !rootUrl.startsWith("http://localhost")) {
+            List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
+            for (BitbucketSCMSource source : sources) {
+                if (source.isAutoRegisterHook()) {
+                    BitbucketApi bitbucket = source.buildBitbucketClient();
+                    List<? extends BitbucketWebHook> existent = bitbucket.getWebHooks();
+                    boolean exists = false;
+                    for (BitbucketWebHook hook : existent) {
+                        // Check if there is a hook pointing to us already
+                        if (hook.getUrl().equals(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH)) {
+                            exists = true;
+                            break;
+                        }
                     }
-                }
-                if (!exists) {
-                    String rootUrl = Jenkins.getActiveInstance().getRootUrl();
-                    if (rootUrl != null && !rootUrl.startsWith("http://localhost")) {
-                        LOGGER.info(String.format("Registering hook for %s/%s", source.getRepoOwner(), source.getRepository()));
-                        bitbucket.registerCommitWebHook(getHook());
-                    } else {
-                        LOGGER.warning(String.format("Can not register hook. Jenkins root URL is not valid: %s", rootUrl));
+                    if (!exists) {
+                            LOGGER.info(String.format("Registering hook for %s/%s", source.getRepoOwner(), source.getRepository()));
+                            bitbucket.registerCommitWebHook(getHook());
                     }
                 }
             }
+        } else {
+            LOGGER.warning(String.format("Can not register hook. Jenkins root URL is not valid: %s", rootUrl));
         }
     }
 

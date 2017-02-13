@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.LogRecord;
@@ -33,6 +34,8 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.xml.sax.SAXException;
 
 import com.cloudbees.jenkins.plugins.bitbucket.BranchScanningIntegrationTest.MultiBranchProjectImpl;
@@ -51,6 +54,8 @@ public class WebhooksAutoregisterTest {
 
     @Test
     public void registerHookTest() throws Exception {
+        BitbucketApi mock = Mockito.mock(BitbucketApi.class);
+        BitbucketMockApiFactory.add(null, mock);
         RingBufferLogHandler log = createJULTestHandler();
 
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");

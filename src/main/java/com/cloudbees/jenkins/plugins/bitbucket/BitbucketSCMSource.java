@@ -669,9 +669,7 @@ public class BitbucketSCMSource extends SCMSource {
         List<Action> result = new ArrayList<>();
         final BitbucketApi bitbucket = buildBitbucketClient();
         BitbucketRepository r = bitbucket.getRepository();
-        if (r != null) {
-            result.add(new BitbucketRepoMetadataAction(r));
-        }
+        result.add(new BitbucketRepoMetadataAction(r));
         String defaultBranch = bitbucket.getDefaultBranch();
         if (StringUtils.isNotBlank(defaultBranch)) {
             result.add(new BitbucketDefaultBranch(repoOwner, repository, defaultBranch));
