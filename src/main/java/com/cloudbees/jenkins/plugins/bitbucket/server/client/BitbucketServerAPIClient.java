@@ -23,11 +23,13 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.server.client;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +37,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.NameValuePair;
@@ -45,7 +46,6 @@ import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -172,9 +172,56 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return repositoryName;
     }
 
+    @Override
+    public String getRepositoryUri(BitbucketRepositoryType type,
+                                   BitbucketRepositoryProtocol protocol,
+                                   Integer protocolPortOverride, String owner,
+                                   String repository) throws IOException, InterruptedException {
+        switch (type) {
+            case GIT:
+                URL url = new URL(baseURL);
+                StringBuilder result = new StringBuilder();
+                switch (protocol) {
+                    case HTTPS:
+                        result.append("https://");
+                        if (protocolPortOverride != null && protocolPortOverride > 0) {
+                            result.append(url.getHost());
+                            result.append(':');
+                            result.append(protocolPortOverride);
+                        } else {
+                            result.append(url.getAuthority());
+                        }
+                        result.append("/scm/");
+                        result.append(owner);
+                        result.append('/');
+                        result.append(repository);
+                        result.append(".git");
+                        break;
+                    case SSH:
+                        result.append("ssh://git@");
+                        result.append(url.getHost());
+                        if (protocolPortOverride  != null && protocolPortOverride > 0) {
+                            result.append(':');
+                            result.append(protocolPortOverride);
+                        }
+                        result.append('/');
+                        result.append(owner);
+                        result.append('/');
+                        result.append(repository);
+                        result.append(".git");
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported repository protocol: " + protocol);
+                }
+                return result.toString();
+                default:
+                    throw new IllegalArgumentException("Unsupported repository type: " + type);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketServerPullRequest> getPullRequests() {
+    public List<BitbucketServerPullRequest> getPullRequests() throws IOException, InterruptedException {
         String url = String.format(API_PULL_REQUESTS_PATH, getUserCentricOwner(), repositoryName, 0);
 
         try {
@@ -184,88 +231,82 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             BitbucketServerPullRequests page = parse(response, BitbucketServerPullRequests.class);
             pullRequests.addAll(page.getValues());
             while (!page.isLastPage() && pageNumber < MAX_PAGES) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
                 pageNumber++;
-                response = getRequest(String.format(API_PULL_REQUESTS_PATH, getUserCentricOwner(), repositoryName, page.getNextPageStart()));
+                url = String.format(API_PULL_REQUESTS_PATH, getUserCentricOwner(), repositoryName,
+                        page.getNextPageStart());
+                response = getRequest(url);
                 page = parse(response, BitbucketServerPullRequests.class);
                 pullRequests.addAll(page.getValues());
             }
             return pullRequests;
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid pull requests response", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return Collections.EMPTY_LIST;
     }
 
     /** {@inheritDoc} */
     @Override
-    public BitbucketPullRequest getPullRequestById(Integer id) {
-        String response = getRequest(String.format(API_PULL_REQUEST_PATH, getUserCentricOwner(), repositoryName, id));
+    public BitbucketPullRequest getPullRequestById(Integer id) throws IOException {
+        String url = String.format(API_PULL_REQUEST_PATH, getUserCentricOwner(), repositoryName, id);
+        String response = getRequest(url);
         try {
             return parse(response, BitbucketServerPullRequest.class);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "invalid pull request response.", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public BitbucketRepository getRepository() {
+    public BitbucketRepository getRepository() throws IOException {
         if (repositoryName == null) {
-            return null;
+            throw new UnsupportedOperationException(
+                    "Cannot get a repository from an API instance that is not associated with a repository");
         }
-        String response = getRequest(String.format(API_REPOSITORY_PATH, getUserCentricOwner(), repositoryName));
+        String url = String.format(API_REPOSITORY_PATH, getUserCentricOwner(), repositoryName);
+        String response = getRequest(url);
         try {
             return parse(response, BitbucketServerRepository.class);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "invalid repository response.", e);
-        }
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void postCommitComment(String hash, String comment) {
-        try {
-            postRequest(String.format(API_COMMIT_COMMENT_PATH, getUserCentricOwner(), repositoryName, hash), new NameValuePair[]{ new NameValuePair("text", comment) });
-        } catch (UnsupportedEncodingException e) {
-            LOGGER.log(Level.SEVERE, "Encoding error", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void postBuildStatus(BitbucketBuildStatus status) {
-        try {
-            postRequest(String.format(API_COMMIT_STATUS_PATH, status.getHash()), serialize(status));
-        } catch (UnsupportedEncodingException e) {
-            LOGGER.log(Level.SEVERE, "Encoding error", e);
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Build Status serialization error", e);
-        }
+    public void postCommitComment(String hash, String comment) throws IOException {
+        postRequest(String.format(API_COMMIT_COMMENT_PATH, getUserCentricOwner(), repositoryName, hash), new NameValuePair[]{ new NameValuePair("text", comment) });
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean checkPathExists(String branch, String path) {
-        int status = getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, path, branch));
-        return status == HttpStatus.SC_OK;
+    public void postBuildStatus(BitbucketBuildStatus status) throws IOException {
+        postRequest(String.format(API_COMMIT_STATUS_PATH, status.getHash()), serialize(status));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean checkPathExists(String branch, String path) throws IOException {
+        return HttpStatus.SC_OK == getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, path, branch));
     }
 
     @Override
-    public String getDefaultBranch() {
-        String response = getRequest(String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName));
+    public String getDefaultBranch() throws IOException {
+        String url = String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName);
         try {
+            String response = getRequest(url);
             return parse(response, BitbucketServerBranch.class).getName();
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "invalid commit response.", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketServerBranch> getBranches() {
+    public List<BitbucketServerBranch> getBranches() throws IOException, InterruptedException {
         String url = String.format(API_BRANCHES_PATH, getUserCentricOwner(), repositoryName, 0);
 
         try {
@@ -275,28 +316,31 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             BitbucketServerBranches page = parse(response, BitbucketServerBranches.class);
             branches.addAll(page.getValues());
             while (!page.isLastPage() && pageNumber < MAX_PAGES) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
                 pageNumber++;
-                response = getRequest(String.format(API_BRANCHES_PATH, getUserCentricOwner(), repositoryName, page.getNextPageStart()));
+                url = String.format(API_BRANCHES_PATH, getUserCentricOwner(), repositoryName, page.getNextPageStart());
+                response = getRequest(url);
                 page = parse(response, BitbucketServerBranches.class);
                 branches.addAll(page.getValues());
             }
             return branches;
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid branches response", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return Collections.EMPTY_LIST;
     }
 
     /** {@inheritDoc} */
     @Override
-    public BitbucketCommit resolveCommit(String hash) {
-        String response = getRequest(String.format(API_COMMITS_PATH, getUserCentricOwner(), repositoryName, hash));
+    public BitbucketCommit resolveCommit(String hash) throws IOException {
+        String url = String.format(API_COMMITS_PATH, getUserCentricOwner(), repositoryName, hash);
         try {
+            String response = getRequest(url);
             return parse(response, BitbucketServerCommit.class);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "invalid commit response.", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return null;
     }
 
     /** {@inheritDoc} */
@@ -318,24 +362,24 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     @Override
     public List<BitbucketWebHook> getWebHooks() {
         // TODO
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     /**
      * There is no such Team concept in Bitbucket Server but Project.
      */
     @Override
-    public BitbucketTeam getTeam() {
+    public BitbucketTeam getTeam() throws IOException {
         if (userCentric) {
             return null;
         } else {
-            String response = getRequest(String.format(API_PROJECT_PATH, getOwner()));
+            String url = String.format(API_PROJECT_PATH, getOwner());
             try {
+                String response = getRequest(url);
                 return parse(response, BitbucketServerProject.class);
             } catch (IOException e) {
-                LOGGER.log(Level.WARNING, "invalid project response.", e);
+                throw new IOException("I/O error when accessing URL: " + url, e);
             }
-            return null;
         }
     }
 
@@ -343,7 +387,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
      * The role parameter is ignored for Bitbucket Server.
      */
     @Override
-    public List<BitbucketServerRepository> getRepositories(UserRoleInRepository role) {
+    public List<BitbucketServerRepository> getRepositories(UserRoleInRepository role)
+            throws IOException, InterruptedException {
         String url = String.format(API_REPOSITORIES_PATH, getUserCentricOwner(), 0);
 
         try {
@@ -353,28 +398,30 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             BitbucketServerRepositories page = parse(response, BitbucketServerRepositories.class);
             repositories.addAll(page.getValues());
             while (!page.isLastPage() && pageNumber < MAX_PAGES) {
+                if (Thread.interrupted()) {
+                    throw new InterruptedException();
+                }
                 pageNumber++;
-                response = getRequest(String.format(API_REPOSITORIES_PATH, getUserCentricOwner(), page.getNextPageStart()));
+                url = String.format(API_REPOSITORIES_PATH, getUserCentricOwner(), page.getNextPageStart());
+                response = getRequest(url);
                 page = parse(response, BitbucketServerRepositories.class);
                 repositories.addAll(page.getValues());
             }
             return repositories;
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "invalid branches response", e);
+            throw new IOException("I/O error when accessing URL: " + url, e);
         }
-        return Collections.EMPTY_LIST;
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<BitbucketServerRepository> getRepositories() {
+    public List<BitbucketServerRepository> getRepositories() throws IOException, InterruptedException {
         return getRepositories(null);
     }
 
     @Override
-    public boolean isPrivate() {
-        BitbucketRepository repo = getRepository();
-        return repo != null ? repo.isPrivate() : false;
+    public boolean isPrivate() throws IOException {
+        return getRepository().isPrivate();
     }
 
 
@@ -383,34 +430,26 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return mapper.readValue(response, clazz);
     }
 
-    private String getRequest(String path) {
+    private String getRequest(String path) throws IOException {
         GetMethod httpget = new GetMethod(this.baseURL + path);
         HttpClient client = getHttpClient(getMethodHost(httpget));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
-        String response = null;
-        InputStream responseBodyAsStream = null;
         try {
             client.executeMethod(httpget);
-            responseBodyAsStream = httpget.getResponseBodyAsStream();
-            response = IOUtils.toString(responseBodyAsStream, "UTF-8");
+            String response = new String(httpget.getResponseBody(), "UTF-8");
+            if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+                throw new FileNotFoundException("URL: " + path);
+            }
             if (httpget.getStatusCode() != HttpStatus.SC_OK) {
                 throw new BitbucketRequestException(httpget.getStatusCode(), "HTTP request error. Status: " + httpget.getStatusCode() + ": " + httpget.getStatusText() + ".\n" + response);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            return response;
+        } catch (BitbucketRequestException | FileNotFoundException e) {
+            throw e;
         } catch (IOException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            throw new IOException("Communication error for url: " + path, e);
         } finally {
             httpget.releaseConnection();
-            if (responseBodyAsStream != null) {
-                IOUtils.closeQuietly(responseBodyAsStream);
-            }
         }
-        if (response == null) {
-            throw new BitbucketRequestException(0, "HTTP request error " + httpget.getStatusCode() + ":" + httpget.getStatusText());
-        }
-        return response;
     }
 
     private HttpClient getHttpClient(String host) {
@@ -418,6 +457,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
         client.getParams().setConnectionManagerTimeout(10 * 1000);
         client.getParams().setSoTimeout(60 * 1000);
+
+        client.getState().setCredentials(AuthScope.ANY, credentials);
+        client.getParams().setAuthenticationPreemptive(true);
 
         setClientProxyParams(host, client);
         return client;
@@ -437,34 +479,27 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
         if (proxy.type() != Proxy.Type.DIRECT) {
             final InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
-            LOGGER.fine("Jenkins proxy: " + proxy.address());
+            LOGGER.log(Level.FINE, "Jenkins proxy: {0}", proxy.address());
             client.getHostConfiguration().setProxy(proxyAddress.getHostString(), proxyAddress.getPort());
             String username = proxyConfig.getUserName();
             String password = proxyConfig.getPassword();
             if (username != null && !"".equals(username.trim())) {
-                LOGGER.fine("Using proxy authentication (user=" + username + ")");
+                LOGGER.log(Level.FINE, "Using proxy authentication (user={0})", username);
                 client.getState().setProxyCredentials(AuthScope.ANY,
                     new UsernamePasswordCredentials(username, password));
             }
         }
     }
 
-    private int getRequestStatus(String path) {
+    private int getRequestStatus(String path) throws IOException {
         GetMethod httpget = new GetMethod(this.baseURL + path);
         HttpClient client = getHttpClient(getMethodHost(httpget));
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
         try {
             client.executeMethod(httpget);
             return httpget.getStatusCode();
-        } catch (HttpException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Communication error", e);
         } finally {
             httpget.releaseConnection();
         }
-        return -1;
     }
 
     private static String getMethodHost(HttpMethod method) {
@@ -480,13 +515,13 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return mapper.writeValueAsString(o);
     }
 
-    private String postRequest(String path, NameValuePair[] params) throws UnsupportedEncodingException {
+    private String postRequest(String path, NameValuePair[] params) throws IOException {
         PostMethod httppost = new PostMethod(this.baseURL + path);
         httppost.setRequestEntity(new StringRequestEntity(nameValueToJson(params), "application/json", "UTF-8"));
         return postRequest(httppost);
     }
 
-    private String postRequest(String path, String content) throws UnsupportedEncodingException {
+    private String postRequest(String path, String content) throws IOException {
         PostMethod httppost = new PostMethod(this.baseURL + path);
         httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
         return postRequest(httppost);
@@ -500,40 +535,24 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return o.toString();
     }
 
-    private String postRequest(PostMethod httppost) throws UnsupportedEncodingException {
+    private String postRequest(PostMethod httppost) throws IOException {
         HttpClient client = getHttpClient(getMethodHost(httppost));
         client.getState().setCredentials(AuthScope.ANY, credentials);
         client.getParams().setAuthenticationPreemptive(true);
-        String response = null;
-        InputStream responseBodyAsStream = null;
         try {
             client.executeMethod(httppost);
             if (httppost.getStatusCode() == HttpStatus.SC_NO_CONTENT) {
                 // 204, no content
                 return "";
             }
-            responseBodyAsStream = httppost.getResponseBodyAsStream();
-            if (responseBodyAsStream != null) {
-                response = IOUtils.toString(responseBodyAsStream, "UTF-8");
-            }
+            String response = new String(httppost.getResponseBody(), "UTF-8");
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
             }
-        } catch (HttpException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
-        } catch (IOException e) {
-            throw new BitbucketRequestException(0, "Communication error: " + e, e);
+            return response;
         } finally {
             httppost.releaseConnection();
-            if (responseBodyAsStream != null) {
-                IOUtils.closeQuietly(responseBodyAsStream);
-            }
         }
-        if (response == null) {
-            throw new BitbucketRequestException(0, "HTTP request error");
-        }
-        return response;
-
     }
 
 }

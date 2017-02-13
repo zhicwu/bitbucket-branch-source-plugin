@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -90,7 +91,11 @@ public class WebhookAutoRegisterListener extends ItemListener {
         getExecutorService().submit(new SafeTimerTask() {
             @Override
             public void doRun() {
-                registerHooks(owner);
+                try {
+                    registerHooks(owner);
+                } catch (IOException | InterruptedException e) {
+                    LOGGER.log(Level.WARNING, "Could not register hooks for " + owner.getFullName(), e);
+                }
             }
         });
     }
@@ -99,13 +104,17 @@ public class WebhookAutoRegisterListener extends ItemListener {
         getExecutorService().submit(new SafeTimerTask() {
             @Override
             public void doRun() {
-                removeHooks(owner);
+                try {
+                    removeHooks(owner);
+                } catch (IOException | InterruptedException e) {
+                    LOGGER.log(Level.WARNING, "Could not deregister hooks for " + owner.getFullName(), e);
+                }
             }
         });
     }
 
     // synchronized just to avoid duplicated webhooks in case SCMSourceOwner is updated repeteadly and quickly
-    private synchronized void registerHooks(SCMSourceOwner owner) {
+    private synchronized void registerHooks(SCMSourceOwner owner) throws IOException, InterruptedException {
         List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
         for (BitbucketSCMSource source : sources) {
             if (source.isAutoRegisterHook()) {
@@ -132,7 +141,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
         }
     }
 
-    private void removeHooks(SCMSourceOwner owner) {
+    private void removeHooks(SCMSourceOwner owner) throws IOException, InterruptedException {
         List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
         for (BitbucketSCMSource source : sources) {
             if (source.isAutoRegisterHook()) {

@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.List;
 
@@ -47,6 +48,23 @@ public interface BitbucketApi {
     String getRepositoryName();
 
     /**
+     * Returns the URI of the repository.
+     * @param type the type of repository.
+     * @param protocol the protocol to access the repository with.
+     * @param protocolPortOverride
+     *@param owner the owner
+     * @param repository the repository.   @return the URI.
+     */
+    String getRepositoryUri(@NonNull BitbucketRepositoryType type,
+                            @NonNull BitbucketRepositoryProtocol protocol,
+                            @CheckForNull Integer protocolPortOverride,
+                            @NonNull String owner,
+                            @NonNull String repository)
+
+
+            throws IOException, InterruptedException;
+
+    /**
      * @return the list of pull requests in the repository.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
@@ -59,7 +77,7 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    @CheckForNull
+    @NonNull
     BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException;
 
     /**
@@ -68,7 +86,7 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    @CheckForNull
+    @NonNull
     BitbucketRepository getRepository() throws IOException, InterruptedException;
 
     /**
@@ -95,8 +113,10 @@ public interface BitbucketApi {
     /**
      * Gets the default branch in the repository.
      * @return the default branch in the repository.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    String getDefaultBranch();
+    String getDefaultBranch() throws IOException, InterruptedException;
 
     /**
      * @return the list of branches in the repository.

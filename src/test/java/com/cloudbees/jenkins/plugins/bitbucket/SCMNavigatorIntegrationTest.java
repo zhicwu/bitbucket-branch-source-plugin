@@ -48,10 +48,12 @@ public class SCMNavigatorIntegrationTest {
 
     @Test
     public void teamDiscoveringTest() throws Exception {
+        BitbucketMockApiFactory.add("http://bitbucket.test",
+                BitbucketClientMockUtils.getAPIClientMock(RepositoryType.GIT, true));
         OrganizationFolder teamFolder = j.jenkins.createProject(OrganizationFolder.class, "test");
         BitbucketSCMNavigator navigator = new BitbucketSCMNavigator("myteam", null, null);
         navigator.setPattern("test-repos");
-        navigator.setBitbucketConnector(SCMNavigatorTest.getConnectorMock(RepositoryType.GIT, true));
+        navigator.setBitbucketServerUrl("http://bitbucket.test");
         teamFolder.getNavigators().add(navigator);
         teamFolder.scheduleBuild2(0).getFuture().get();
         teamFolder.getComputation().writeWholeLogTo(System.out);

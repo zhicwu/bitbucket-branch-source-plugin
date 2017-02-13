@@ -27,6 +27,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
@@ -108,7 +109,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
             for (BitbucketPullRequest pr : bitbucket.getPullRequests()) {
                 targets.put(pr.getId(), pr.getDestination().getBranch().getName());
             }
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | IOException | InterruptedException e) {
             // log this at fine as we give the usage based detail later.
             LOGGER.log(Level.FINE, "Cannot resolve pull request targets", e);
         }

@@ -76,9 +76,11 @@ public class BranchScanningIntegrationTest {
 
     @Test
     public void indexingTest() throws Exception {
+        BitbucketMockApiFactory.add("http://bitbucket.test", BitbucketClientMockUtils.getAPIClientMock(RepositoryType.GIT, false));
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
-        BitbucketSCMSource source = getTestSCMSource(RepositoryType.GIT);
+        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
         source.setOwner(p);
+        source.setBitbucketServerUrl("http://bitbucket.test");
         p.getSourcesList().add(new BranchSource(source, new DefaultBranchPropertyStrategy(null)));
         p.scheduleBuild2(0);
         j.waitUntilNoActivity();
@@ -233,11 +235,12 @@ public class BranchScanningIntegrationTest {
         }
     }
 
-    public static BitbucketSCMSource getTestSCMSource(RepositoryType type) {
+    public static BitbucketSCMSource getTestSCMSource(RepositoryType type) throws IOException, InterruptedException {
         return getTestSCMSource(type, false);
     }
 
-    public static BitbucketSCMSource getTestSCMSource(RepositoryType type, boolean includeWebHooks) {
+    public static BitbucketSCMSource getTestSCMSource(RepositoryType type, boolean includeWebHooks)
+            throws IOException, InterruptedException {
         BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
         BitbucketApiConnector mockFactory = mock(BitbucketApiConnector.class);
         BitbucketCloudApiClient mockedApi = BitbucketClientMockUtils.getAPIClientMock(type, false);

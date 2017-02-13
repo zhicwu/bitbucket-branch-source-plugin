@@ -26,6 +26,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import java.io.IOException;
 
 /**
  * Abstract Bitbucket commit notifier implementation.
@@ -40,14 +41,15 @@ public abstract class BitbucketNotifier {
      * @param hash commit hash
      * @param content notification content
      */
-    public abstract void notify(@CheckForNull String repoOwner, @CheckForNull String repoName, String hash, String content);
+    public abstract void notify(@CheckForNull String repoOwner, @CheckForNull String repoName, String hash, String content)
+            throws IOException, InterruptedException;
 
     /**
      * Notify bitbucket through the build status API.
      *
      * @param status the status object to serialize
      */
-    public abstract void buildStatus(BitbucketBuildStatus status);
+    public abstract void buildStatus(BitbucketBuildStatus status) throws IOException, InterruptedException;
 
     /**
      * Convenience method that calls {@link #notify(String, String, String, String)} without owner
@@ -56,7 +58,7 @@ public abstract class BitbucketNotifier {
      * @param hash commit hash
      * @param content notification content 
      */
-    public void notify(String hash, String content) {
+    public void notify(String hash, String content) throws IOException, InterruptedException {
         notify(null, null, hash, content);
     }
 

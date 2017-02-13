@@ -21,34 +21,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.cloudbees.jenkins.plugins.bitbucket;
+package com.cloudbees.jenkins.plugins.bitbucket.api;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
-
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import java.io.IOException;
 
-/**
- * Bitbucket notifier implementation that sends notifications as commit comments.
- */
-public class BitbucketChangesetCommentNotifier extends BitbucketNotifier {
+public enum BitbucketRepositoryType {
 
-    private BitbucketApi bitbucket;
+    /**
+     * Git repository.
+     */
+    GIT("git"),
 
-    public BitbucketChangesetCommentNotifier(@NonNull BitbucketApi bitbucket) {
-        this.bitbucket = bitbucket;
+    /**
+     * Mercurial repository.
+     */
+    MERCURIAL("hg");
+
+    private String type;
+
+    BitbucketRepositoryType(@NonNull String type) {
+        this.type = type;
     }
 
-    @Override
-    public void notify(String repoOwner, String repoName, String hash, String content)
-            throws IOException, InterruptedException {
-        bitbucket.postCommitComment(hash, content);
+    public String getType() {
+        return type;
     }
 
-    @Override
-    public void buildStatus(BitbucketBuildStatus status) throws IOException, InterruptedException {
-        bitbucket.postBuildStatus(status);
+    @CheckForNull
+    public static BitbucketRepositoryType fromString(String type) {
+        if (GIT.type.equals(type)) {
+            return GIT;
+        } else if (MERCURIAL.type.equals(type)) {
+            return MERCURIAL;
+        } else {
+            return null;
+        }
     }
-
 }

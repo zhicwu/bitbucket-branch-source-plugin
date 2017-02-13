@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import hudson.model.Queue;
 import hudson.model.queue.Tasks;
 import java.util.List;
@@ -60,19 +61,11 @@ public class BitbucketApiConnector {
     }
 
     public BitbucketApi create(String owner, String repository, StandardUsernamePasswordCredentials creds) {
-        if (serverUrl == null) {
-            return new BitbucketCloudApiClient(owner, repository, creds);
-        } else {
-            return new BitbucketServerAPIClient(serverUrl, owner, repository, creds, false);
-        }
+        return BitbucketApiFactory.newInstance(serverUrl, creds, owner, repository);
     }
 
     public BitbucketApi create(String owner, StandardUsernamePasswordCredentials creds) {
-        if (serverUrl == null) {
-            return new BitbucketCloudApiClient(owner, creds);
-        } else {
-            return new BitbucketServerAPIClient(serverUrl, owner, creds, false);
-        }
+        return BitbucketApiFactory.newInstance(serverUrl, creds, owner, null);
     }
 
     @CheckForNull 
