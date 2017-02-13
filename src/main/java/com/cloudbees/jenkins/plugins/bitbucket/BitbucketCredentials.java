@@ -23,16 +23,6 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
-import hudson.model.Queue;
-import hudson.model.queue.Tasks;
-import java.util.List;
-
-import javax.annotation.CheckForNull;
-
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.BitbucketServerAPIClient;
 import com.cloudbees.plugins.credentials.CredentialsMatcher;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
@@ -42,88 +32,89 @@ import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
-
-import hudson.Util;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.Queue;
+import hudson.model.queue.Tasks;
 import hudson.security.ACL;
-import hudson.util.ListBoxModel;
+import java.util.List;
 import jenkins.scm.api.SCMSourceOwner;
 import org.apache.commons.lang.StringUtils;
 
-public class BitbucketApiConnector {
-
-    private String serverUrl;
-
-    public BitbucketApiConnector() {
+/**
+ * Utility class for common code accessing credentials
+ */
+class BitbucketCredentials {
+    private BitbucketCredentials() {
+        throw new IllegalAccessError("Utility class");
     }
 
-    public BitbucketApiConnector(String serverUrl) {
-        this.serverUrl = serverUrl;
-    }
-
-    public BitbucketApi create(String owner, String repository, StandardUsernamePasswordCredentials creds) {
-        return BitbucketApiFactory.newInstance(serverUrl, creds, owner, repository);
-    }
-
-    public BitbucketApi create(String owner, StandardUsernamePasswordCredentials creds) {
-        return BitbucketApiFactory.newInstance(serverUrl, creds, owner, null);
-    }
-
-    @CheckForNull 
-    public <T extends StandardCredentials> T lookupCredentials(@CheckForNull SCMSourceOwner context, @CheckForNull String id, Class<T> type) {
-        if (StringUtils.isNotBlank(id)) {
+    @CheckForNull
+    static <T extends StandardCredentials> T lookupCredentials(@CheckForNull String serverUrl,
+                                                               @CheckForNull SCMSourceOwner context,
+                                                               @CheckForNull String id,
+                                                               @NonNull Class<T> type) {
+        if (StringUtils.isNotBlank(id) && context != null) {
             return CredentialsMatchers.firstOrNull(
-                      CredentialsProvider.lookupCredentials(
-                              type,
-                              context,
-                              context instanceof Queue.Task
-                                      ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                                      : ACL.SYSTEM,
-                              bitbucketDomainRequirements()
-                      ),
-                      CredentialsMatchers.allOf(
-                          CredentialsMatchers.withId(id),
-                          CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(type))
-                      )
+                    CredentialsProvider.lookupCredentials(
+                            type,
+                            context,
+                            context instanceof Queue.Task
+                                    ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                                    : ACL.SYSTEM,
+                            domainRequirementsOf(serverUrl)
+                    ),
+                    CredentialsMatchers.allOf(
+                            CredentialsMatchers.withId(id),
+                            CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(type))
+                    )
             );
         }
         return null;
     }
 
-    public StandardListBoxModel fillCheckoutCredentials(StandardListBoxModel result, SCMSourceOwner context) {
+    static StandardListBoxModel fillCheckoutCredentials(@CheckForNull String serverUrl,
+                                                        @NonNull SCMSourceOwner context,
+                                                        @NonNull StandardListBoxModel result) {
         result.includeMatchingAs(
                 context instanceof Queue.Task
-                ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                : ACL.SYSTEM,
+                        ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                        : ACL.SYSTEM,
                 context,
                 StandardCredentials.class,
-                bitbucketDomainRequirements(),
-                bitbucketCheckoutCredentialsMatcher()
+                domainRequirementsOf(serverUrl),
+                checkoutMatcher()
         );
         return result;
     }
 
-    public StandardListBoxModel fillCredentials(StandardListBoxModel result, SCMSourceOwner context) {
+    static StandardListBoxModel fillCredentials(@CheckForNull String serverUrl,
+                                                @NonNull SCMSourceOwner context,
+                                                @NonNull StandardListBoxModel result) {
         result.includeMatchingAs(
                 context instanceof Queue.Task
-                ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                : ACL.SYSTEM,
+                        ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                        : ACL.SYSTEM,
                 context,
                 StandardUsernameCredentials.class,
-                bitbucketDomainRequirements(),
-                bitbucketCredentialsMatcher()
+                domainRequirementsOf(serverUrl),
+                matcher()
         );
         return result;
     }
 
-    /* package */ static CredentialsMatcher bitbucketCredentialsMatcher() {
+    /* package */
+    static CredentialsMatcher matcher() {
         return CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardUsernamePasswordCredentials.class));
     }
 
-    /* package */ static CredentialsMatcher bitbucketCheckoutCredentialsMatcher() {
+    /* package */
+    static CredentialsMatcher checkoutMatcher() {
         return CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardCredentials.class));
     }
 
-    /* package */ List<DomainRequirement> bitbucketDomainRequirements() {
+    /* package */
+    static List<DomainRequirement> domainRequirementsOf(@CheckForNull String serverUrl) {
         if (serverUrl == null) {
             return URIRequirementBuilder.fromUri("https://bitbucket.org").build();
         } else {

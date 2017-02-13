@@ -36,7 +36,7 @@ public enum BitbucketRepositoryProtocol {
     /**
      * Mercurial repository.
      */
-    HTTPS("https");
+    HTTP("https");
 
     private String type;
 
@@ -52,8 +52,8 @@ public enum BitbucketRepositoryProtocol {
     public static BitbucketRepositoryProtocol fromString(String type) {
         if (SSH.type.equals(type)) {
             return SSH;
-        } else if (HTTPS.type.equals(type)) {
-            return HTTPS;
+        } else if (HTTP.type.equals(type)) {
+            return HTTP;
         } else {
             return null;
         }

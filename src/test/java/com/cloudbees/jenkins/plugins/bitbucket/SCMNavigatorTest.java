@@ -153,13 +153,4 @@ public class SCMNavigatorTest {
         }
     }
 
-    public static BitbucketApiConnector getConnectorMock(RepositoryType type, boolean includePullRequests)
-            throws IOException, InterruptedException {
-        BitbucketApiConnector mockConnector = mock(BitbucketApiConnector.class);
-        BitbucketCloudApiClient mockedApi = BitbucketClientMockUtils.getAPIClientMock(type, includePullRequests);
-        when(mockConnector.create(anyString(), any(StandardUsernamePasswordCredentials.class))).thenReturn(mockedApi);
-        when(mockConnector.create(anyString(), anyString(), any(StandardUsernamePasswordCredentials.class))).thenReturn(mockedApi);
-        return mockConnector;
-    }
-
 }

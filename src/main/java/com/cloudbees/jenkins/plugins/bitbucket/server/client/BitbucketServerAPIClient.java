@@ -182,8 +182,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 URL url = new URL(baseURL);
                 StringBuilder result = new StringBuilder();
                 switch (protocol) {
-                    case HTTPS:
-                        result.append("https://");
+                    case HTTP:
+                        result.append(url.getProtocol());
+                        result.append("://");
                         if (protocolPortOverride != null && protocolPortOverride > 0) {
                             result.append(url.getHost());
                             result.append(':');

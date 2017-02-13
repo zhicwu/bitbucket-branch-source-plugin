@@ -24,6 +24,7 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -104,8 +105,12 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         }
         Map<String, String> targets = new HashMap<>();
         try {
-            final BitbucketApi bitbucket = source.getBitbucketConnector()
-                    .create(source.getRepoOwner(), source.getRepository(), source.getScanCredentials());
+            final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(
+                    source.getBitbucketServerUrl(),
+                    source.getScanCredentials(),
+                    source.getRepoOwner(),
+                    source.getRepository()
+            );
             for (BitbucketPullRequest pr : bitbucket.getPullRequests()) {
                 targets.put(pr.getId(), pr.getDestination().getBranch().getName());
             }

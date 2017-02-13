@@ -34,13 +34,11 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.xml.sax.SAXException;
 
 import com.cloudbees.jenkins.plugins.bitbucket.BranchScanningIntegrationTest.MultiBranchProjectImpl;
 import com.cloudbees.jenkins.plugins.bitbucket.hooks.WebhookAutoRegisterListener;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
 
 import hudson.util.RingBufferLogHandler;
 import jenkins.branch.BranchSource;
@@ -59,7 +57,7 @@ public class WebhooksAutoregisterTest {
         RingBufferLogHandler log = createJULTestHandler();
 
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
-        BitbucketSCMSource source = BranchScanningIntegrationTest.getTestSCMSource(RepositoryType.GIT, true);
+        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
         source.setAutoRegisterHook(true);
         p.getSourcesList().add(new BranchSource(source, new DefaultBranchPropertyStrategy(null)));
         p.scheduleBuild2(0);

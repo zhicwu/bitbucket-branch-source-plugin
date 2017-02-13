@@ -23,9 +23,9 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -35,17 +35,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.acegisecurity.Authentication;
+import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
-import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
 import com.cloudbees.jenkins.plugins.sshcredentials.impl.BasicSSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 
@@ -58,8 +57,6 @@ import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
-import hudson.scm.SCM;
-import hudson.scm.SCMDescriptor;
 import jenkins.branch.Branch;
 import jenkins.branch.BranchProjectFactory;
 import jenkins.branch.BranchSource;
@@ -92,21 +89,32 @@ public class BranchScanningIntegrationTest {
 
     @Test
     public void uriResolverByCredentialsTest() throws Exception {
-        BitbucketSCMSource source = getTestSCMSource(RepositoryType.GIT);
+        WorkflowMultiBranchProject context = j.jenkins.createProject(WorkflowMultiBranchProject.class, "context");
+        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        context.getSourcesList().add(new BranchSource(source));
         IdCredentials c = new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, null, null, "user", "pass");
         CredentialsProvider.lookupStores(j.jenkins).iterator().next()
                 .addCredentials(Domain.global(), c);
 
-        BitbucketApiConnector connector = new BitbucketApiConnector();
-        StandardCredentials creds = connector.lookupCredentials(source.getOwner(), c.getId(), UsernamePasswordCredentialsImpl.class);
-        assertTrue(creds instanceof UsernamePasswordCredentialsImpl);
+        StandardCredentials creds = BitbucketCredentials.lookupCredentials(
+                null ,
+                source.getOwner(),
+                c.getId(),
+                UsernamePasswordCredentialsImpl.class
+        );
+        assertThat(creds, instanceOf(UsernamePasswordCredentialsImpl.class));
 
         c = new BasicSSHUserPrivateKey(CredentialsScope.GLOBAL, null, "user", null, null, null);
         CredentialsProvider.lookupStores(j.jenkins).iterator().next()
                 .addCredentials(Domain.global(), c);
 
-        creds = connector.lookupCredentials(source.getOwner(), c.getId(), BasicSSHUserPrivateKey.class);
-        assertTrue(creds instanceof BasicSSHUserPrivateKey);
+        creds = BitbucketCredentials.lookupCredentials(
+                null,
+                source.getOwner(),
+                c.getId(),
+                BasicSSHUserPrivateKey.class
+        );
+        assertThat(creds, instanceOf(BasicSSHUserPrivateKey.class));
     }
 
     public static class MultiBranchProjectImpl extends MultiBranchProject<FreeStyleProject, FreeStyleBuild> {
@@ -235,17 +243,4 @@ public class BranchScanningIntegrationTest {
         }
     }
 
-    public static BitbucketSCMSource getTestSCMSource(RepositoryType type) throws IOException, InterruptedException {
-        return getTestSCMSource(type, false);
-    }
-
-    public static BitbucketSCMSource getTestSCMSource(RepositoryType type, boolean includeWebHooks)
-            throws IOException, InterruptedException {
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
-        BitbucketApiConnector mockFactory = mock(BitbucketApiConnector.class);
-        BitbucketCloudApiClient mockedApi = BitbucketClientMockUtils.getAPIClientMock(type, false);
-        when(mockFactory.create(anyString(), anyString(), any(StandardUsernamePasswordCredentials.class))).thenReturn(mockedApi);
-        source.setBitbucketConnector(mockFactory);
-        return source;
-    }
 }

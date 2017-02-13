@@ -39,12 +39,10 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Action;
 import hudson.model.Actionable;
-import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.plugins.git.BranchSpec;
 import hudson.plugins.git.GitSCM;
@@ -160,11 +158,6 @@ public class BitbucketSCMSource extends SCMSource {
     private RepositoryType repositoryType;
 
     /**
-     * Bitbucket API client connector.
-     */
-    private transient BitbucketApiConnector bitbucketConnector;
-
-    /**
      * The cache of pull request titles for each open PR.
      */
     @CheckForNull
@@ -268,17 +261,6 @@ public class BitbucketSCMSource extends SCMSource {
         return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
-    public void setBitbucketConnector(@NonNull BitbucketApiConnector bitbucketConnector) {
-        this.bitbucketConnector = bitbucketConnector;
-    }
-
-    BitbucketApiConnector getBitbucketConnector() {
-        if (bitbucketConnector == null) {
-            bitbucketConnector = new BitbucketApiConnector(bitbucketServerUrl);
-        }
-        return bitbucketConnector;
-    }
-
     public String getRemote(@NonNull String repoOwner, @NonNull String repository)
             throws IOException, InterruptedException {
         BitbucketRepositoryType type = BitbucketRepositoryType.fromString(getRepositoryType().getType());
@@ -286,14 +268,14 @@ public class BitbucketSCMSource extends SCMSource {
         BitbucketRepositoryProtocol protocol;
         Integer protocolPortOverride = null;
         if (StringUtils.isBlank(checkoutCredentialsId)) {
-            protocol = BitbucketRepositoryProtocol.HTTPS;
+            protocol = BitbucketRepositoryProtocol.HTTP;
         } else if (getCheckoutCredentials() instanceof SSHUserPrivateKey) {
             protocol = BitbucketRepositoryProtocol.SSH;
             if (sshPort > 0) {
                 protocolPortOverride = sshPort;
             }
         } else {
-            protocol = BitbucketRepositoryProtocol.HTTPS;
+            protocol = BitbucketRepositoryProtocol.HTTP;
         }
         return buildBitbucketClient().getRepositoryUri(type, protocol, protocolPortOverride, repoOwner, repository);
     }
@@ -410,7 +392,7 @@ public class BitbucketSCMSource extends SCMSource {
         if (isExcluded(branchName)) {
             return;
         }
-        final BitbucketApi bitbucket = getBitbucketConnector().create(owner, repositoryName, getScanCredentials());
+        final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(bitbucketServerUrl, getScanCredentials(), owner, repositoryName);
         SCMSourceCriteria branchCriteria = criteria;
         if (branchCriteria != null) {
             SCMSourceCriteria.Probe probe = new SCMSourceCriteria.Probe() {
@@ -581,11 +563,21 @@ public class BitbucketSCMSource extends SCMSource {
 
     @CheckForNull
     /* package */ StandardUsernamePasswordCredentials getScanCredentials() {
-        return getBitbucketConnector().lookupCredentials(getOwner(), credentialsId, StandardUsernamePasswordCredentials.class);
+        return BitbucketCredentials.lookupCredentials(
+                bitbucketServerUrl,
+                getOwner(),
+                credentialsId,
+                StandardUsernamePasswordCredentials.class
+        );
     }
 
     private StandardCredentials getCheckoutCredentials() {
-        return getBitbucketConnector().lookupCredentials(getOwner(), getCheckoutEffectiveCredentials(), StandardCredentials.class);
+        return BitbucketCredentials.lookupCredentials(
+                bitbucketServerUrl,
+                getOwner(),
+                getCheckoutEffectiveCredentials(),
+                StandardCredentials.class
+        );
     }
 
     public String getRemoteName() {
@@ -629,25 +621,6 @@ public class BitbucketSCMSource extends SCMSource {
             quotedBranches.append(quotedBranch);
         }
         return quotedBranches.toString();
-    }
-
-    private RepositoryUriResolver getUriResolver() {
-        try {
-            if (StringUtils.isBlank(checkoutCredentialsId)) {
-                return new HttpsRepositoryUriResolver(bitbucketServerUrl);
-            } else {
-                if (getCheckoutCredentials() instanceof SSHUserPrivateKey) {
-                    return new SshRepositoryUriResolver(bitbucketServerUrl, sshPort);
-                } else {
-                    // Defaults to HTTPS
-                    return new HttpsRepositoryUriResolver(bitbucketServerUrl);
-                }
-            }
-        } catch (MalformedURLException e) {
-            LOGGER.log(Level.SEVERE, "Bitbucket URL is not valid", e);
-            // The URL is validatd before, so this should never happen
-            throw new IllegalStateException(e);
-        }
     }
 
     private String getCheckoutEffectiveCredentials() {
@@ -799,16 +772,14 @@ public class BitbucketSCMSource extends SCMSource {
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
             result.includeEmptyValue();
-            new BitbucketApiConnector(bitbucketServerUrl).fillCredentials(result, context);
-            return result;
+            return BitbucketCredentials.fillCredentials(bitbucketServerUrl, context, result);
         }
 
         public ListBoxModel doFillCheckoutCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
             result.add("- same as scan credentials -", SAME);
             result.add("- anonymous -", ANONYMOUS);
-            new BitbucketApiConnector(bitbucketServerUrl).fillCheckoutCredentials(result, context);
-            return result;
+            return BitbucketCredentials.fillCheckoutCredentials(bitbucketServerUrl, context, result);
         }
 
         @NonNull
