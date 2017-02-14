@@ -188,7 +188,8 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         }
     }
 
-    private void add(TaskListener listener, SCMSourceObserver observer, BitbucketRepository repo) throws InterruptedException {
+    private void add(TaskListener listener, SCMSourceObserver observer, BitbucketRepository repo)
+            throws InterruptedException, IOException {
         String name = repo.getRepositoryName();
         if (!Pattern.compile(pattern).matcher(name).matches()) {
             listener.getLogger().format("Ignoring %s%n", name);

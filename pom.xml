@@ -48,7 +48,8 @@
 
     <properties>
         <jenkins.version>1.642.3</jenkins.version>
-        <scm-api.version>2.0.2</scm-api.version>
+        <scm-api.version>2.0.4-20170214.145531-1</scm-api.version>
+        <hpi-plugin.version>1.121</hpi-plugin.version> <!-- TODO remove with the timestamp -SNAPSHOT -->
     </properties>
 
     <scm>
