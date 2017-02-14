@@ -89,6 +89,7 @@ import jenkins.scm.api.metadata.PrimaryInstanceMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.WordUtils;
 import org.eclipse.jgit.lib.Constants;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -155,7 +156,7 @@ public class BitbucketSCMSource extends SCMSource {
     /**
      * Repository type.
      */
-    private RepositoryType repositoryType;
+    private BitbucketRepositoryType repositoryType;
 
     /**
      * The cache of pull request titles for each open PR.
@@ -261,10 +262,8 @@ public class BitbucketSCMSource extends SCMSource {
         return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
-    public String getRemote(@NonNull String repoOwner, @NonNull String repository)
-            throws IOException, InterruptedException {
-        BitbucketRepositoryType type = BitbucketRepositoryType.fromString(getRepositoryType().getType());
-        assert type != null;
+    public String getRemote(@NonNull String repoOwner, @NonNull String repository, BitbucketRepositoryType repositoryType) {
+        assert repositoryType != null;
         BitbucketRepositoryProtocol protocol;
         Integer protocolPortOverride = null;
         if (StringUtils.isBlank(checkoutCredentialsId)) {
@@ -277,12 +276,12 @@ public class BitbucketSCMSource extends SCMSource {
         } else {
             protocol = BitbucketRepositoryProtocol.HTTP;
         }
-        return buildBitbucketClient().getRepositoryUri(type, protocol, protocolPortOverride, repoOwner, repository);
+        return buildBitbucketClient().getRepositoryUri(repositoryType, protocol, protocolPortOverride, repoOwner, repository);
     }
 
-    public RepositoryType getRepositoryType() throws IOException, InterruptedException {
+    public BitbucketRepositoryType getRepositoryType() throws IOException, InterruptedException {
         if (repositoryType == null) {
-            repositoryType = RepositoryType.fromString(buildBitbucketClient().getRepository().getScm());
+            repositoryType = BitbucketRepositoryType.fromString(buildBitbucketClient().getRepository().getScm());
         }
         return repositoryType;
     }
@@ -296,6 +295,18 @@ public class BitbucketSCMSource extends SCMSource {
     }
 
     @Override
+    public void afterSave() {
+        try {
+            getRepositoryType();
+        } catch (InterruptedException | IOException e) {
+            LOGGER.log(Level.FINE,
+                    "Could not determine repository type of " + getRepoOwner() + "/" + getRepository() + " on "
+                            + StringUtils.defaultIfBlank(getBitbucketServerUrl(), "bitbucket.org") + " for "
+                            + getOwner(), e);
+        }
+    }
+
+    @Override
     protected void retrieve(@CheckForNull SCMSourceCriteria criteria, @NonNull SCMHeadObserver observer,
                             @CheckForNull SCMHeadEvent<?> event, @NonNull TaskListener listener)
             throws IOException, InterruptedException {
@@ -305,6 +316,8 @@ public class BitbucketSCMSource extends SCMSource {
         } else {
             listener.getLogger().format("Connecting to %s using %s%n", bitbucketUrl(), CredentialsNameProvider.name(scanCredentials));
         }
+        // this has the side-effect of ensuring that repository type is always populated.
+        listener.getLogger().format("Repository type: %s%n", WordUtils.capitalizeFully(getRepositoryType().name()));
 
         // Search branches
         retrieveBranches(criteria, observer, listener);
@@ -434,11 +447,12 @@ public class BitbucketSCMSource extends SCMSource {
                 return;
             }
         }
+        BitbucketRepositoryType repositoryType = getRepositoryType();
         SCMRevision revision;
         SCMHead head = pr != null
-                ? new PullRequestSCMHead(owner, repositoryName, branchName, pr)
-                : new BranchSCMHead(branchName);
-        if (getRepositoryType() == RepositoryType.MERCURIAL) {
+                ? new PullRequestSCMHead(owner, repositoryName, repositoryType, branchName, pr)
+                : new BranchSCMHead(branchName, repositoryType);
+        if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
             revision = new MercurialRevision(head, hash);
         } else {
             revision = new AbstractGitSCMSource.SCMRevisionImpl(head, hash);
@@ -465,7 +479,7 @@ public class BitbucketSCMSource extends SCMSource {
                     }
                     return null;
                 }
-                if (getRepositoryType() == RepositoryType.MERCURIAL) {
+                if (getRepositoryType() == BitbucketRepositoryType.MERCURIAL) {
                     return new MercurialRevision(head, b.getRawNode());
                 } else {
                     return new AbstractGitSCMSource.SCMRevisionImpl(head, b.getRawNode());
@@ -483,18 +497,36 @@ public class BitbucketSCMSource extends SCMSource {
 
     @Override
     public SCM build(SCMHead head, SCMRevision revision) {
-        try {  // TODO fix correctly
-            return _build(head, revision);
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
+        BitbucketRepositoryType repositoryType;
+        if (head instanceof PullRequestSCMHead) {
+            repositoryType = ((PullRequestSCMHead) head).getRepositoryType();
+        } else if (head instanceof BranchSCMHead) {
+            repositoryType = ((BranchSCMHead) head).getRepositoryType();
+        } else {
+            throw new IllegalArgumentException("Either PullRequestSCMHead or BranchSCMHead required as parameter");
         }
-    }
-
-    private SCM _build(SCMHead head, SCMRevision revision) throws IOException, InterruptedException {
+        if (repositoryType == null) {
+            if (revision instanceof MercurialRevision) {
+                repositoryType = BitbucketRepositoryType.MERCURIAL;
+            } else if (revision instanceof AbstractGitSCMSource.SCMRevisionImpl) {
+                repositoryType = BitbucketRepositoryType.GIT;
+            } else {
+                try {
+                    repositoryType = getRepositoryType();
+                } catch (IOException | InterruptedException e) {
+                    repositoryType = BitbucketRepositoryType.GIT;
+                    LOGGER.log(Level.SEVERE,
+                            "Could not determine repository type of " + getRepoOwner() + "/" + getRepository()
+                                    + " on "  + StringUtils.defaultIfBlank(getBitbucketServerUrl(), "bitbucket.org")
+                                    + " for " + getOwner() + " assuming " + repositoryType, e);
+                }
+            }
+        }
         if (head instanceof PullRequestSCMHead) {
             PullRequestSCMHead h = (PullRequestSCMHead) head;
-            if (getRepositoryType() == RepositoryType.MERCURIAL) {
-                MercurialSCM scm = new MercurialSCM(getRemote(h.getRepoOwner(), h.getRepository()));
+            if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
+                MercurialSCM scm = new MercurialSCM(getRemote(h.getRepoOwner(), h.getRepository(),
+                        BitbucketRepositoryType.MERCURIAL));
                 // If no revision specified the branch name will be used as revision
                 scm.setRevision(revision instanceof MercurialRevision
                         ? ((MercurialRevision) revision).getHash()
@@ -514,42 +546,39 @@ public class BitbucketSCMSource extends SCMSource {
                         null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
             }
         }
-        if (head instanceof BranchSCMHead) {
-            if (getRepositoryType() == RepositoryType.MERCURIAL) {
-                MercurialSCM scm = new MercurialSCM(getRemote(repoOwner, repository));
-                // If no revision specified the branch name will be used as revision
-                scm.setRevision(revision instanceof MercurialRevision
-                        ? ((MercurialRevision) revision).getHash()
-                        : head.getName()
-                );
-                scm.setRevisionType(RevisionType.BRANCH);
-                scm.setCredentialsId(getCheckoutEffectiveCredentials());
-                return scm;
-            } else {
-                // Defaults to Git
-                BuildChooser buildChooser = revision instanceof AbstractGitSCMSource.SCMRevisionImpl
-                        ? new SpecificRevisionBuildChooser((AbstractGitSCMSource.SCMRevisionImpl) revision)
-                        : new DefaultBuildChooser();
-                return new GitSCM(getGitRemoteConfigs((BranchSCMHead)head),
-                        Collections.singletonList(new BranchSpec(head.getName())),
-                        false, Collections.<SubmoduleConfig>emptyList(),
-                        null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
-            }
+        // head instanceof BranchSCMHead
+        if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
+            MercurialSCM scm = new MercurialSCM(getRemote(repoOwner, repository, BitbucketRepositoryType.MERCURIAL));
+            // If no revision specified the branch name will be used as revision
+            scm.setRevision(revision instanceof MercurialRevision
+                    ? ((MercurialRevision) revision).getHash()
+                    : head.getName()
+            );
+            scm.setRevisionType(RevisionType.BRANCH);
+            scm.setCredentialsId(getCheckoutEffectiveCredentials());
+            return scm;
+        } else {
+            // Defaults to Git
+            BuildChooser buildChooser = revision instanceof AbstractGitSCMSource.SCMRevisionImpl
+                    ? new SpecificRevisionBuildChooser((AbstractGitSCMSource.SCMRevisionImpl) revision)
+                    : new DefaultBuildChooser();
+            return new GitSCM(getGitRemoteConfigs((BranchSCMHead)head),
+                    Collections.singletonList(new BranchSpec(head.getName())),
+                    false, Collections.<SubmoduleConfig>emptyList(),
+                    null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
         }
-        throw new IllegalArgumentException("Either PullRequestSCMHead or BranchSCMHead required as parameter");
     }
 
-    protected List<UserRemoteConfig> getGitRemoteConfigs(BranchSCMHead head) throws IOException, InterruptedException {
+    protected List<UserRemoteConfig> getGitRemoteConfigs(BranchSCMHead head) {
         List<UserRemoteConfig> result = new ArrayList<UserRemoteConfig>();
-        String remote = getRemote(repoOwner, repository);
+        String remote = getRemote(repoOwner, repository, BitbucketRepositoryType.GIT);
         result.add(new UserRemoteConfig(remote, getRemoteName(), "+refs/heads/" + head.getName(), getCheckoutEffectiveCredentials()));
         return result;
     }
 
-    protected List<UserRemoteConfig> getGitRemoteConfigs(PullRequestSCMHead head)
-            throws IOException, InterruptedException {
+    protected List<UserRemoteConfig> getGitRemoteConfigs(PullRequestSCMHead head) {
         List<UserRemoteConfig> result = new ArrayList<UserRemoteConfig>();
-        String remote = getRemote(head.getRepoOwner(), head.getRepository());
+        String remote = getRemote(head.getRepoOwner(), head.getRepository(), BitbucketRepositoryType.GIT);
         result.add(new UserRemoteConfig(remote, getRemoteName(), "+refs/heads/" + head.getBranchName(), getCheckoutEffectiveCredentials()));
         return result;
     }

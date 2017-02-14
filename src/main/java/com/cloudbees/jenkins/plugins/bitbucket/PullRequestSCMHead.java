@@ -24,6 +24,7 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ObjectStreamException;
@@ -61,12 +62,16 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead 
     }
 
     public PullRequestSCMHead(String repoOwner, String repository, String branchName, BitbucketPullRequest pr) {
+        this(repoOwner, repository, null, branchName, pr);
+    }
+
+    public PullRequestSCMHead(String repoOwner, String repository, BitbucketRepositoryType repositoryType, String branchName, BitbucketPullRequest pr) {
         super(PR_BRANCH_PREFIX + pr.getId());
         this.repoOwner = repoOwner;
         this.repository = repository;
         this.branchName = branchName;
         this.number = pr.getId();
-        this.target = new BranchSCMHead(pr.getDestination().getBranch().getName());
+        this.target = new BranchSCMHead(pr.getDestination().getBranch().getName(), repositoryType);
     }
 
     @SuppressFBWarnings("SE_PRIVATE_READ_RESOLVE_NOT_INHERITED") // because JENKINS-41313
@@ -88,6 +93,10 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead 
 
     public String getBranchName() {
         return branchName;
+    }
+
+    public BitbucketRepositoryType getRepositoryType() {
+        return target.getRepositoryType();
     }
 
     @NonNull

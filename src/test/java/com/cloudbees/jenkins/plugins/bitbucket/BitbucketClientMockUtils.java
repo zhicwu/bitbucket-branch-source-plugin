@@ -54,7 +54,7 @@ import jenkins.model.Jenkins;
 
 public class BitbucketClientMockUtils {
 
-    public static BitbucketCloudApiClient getAPIClientMock(RepositoryType type, boolean includePullRequests, 
+    public static BitbucketCloudApiClient getAPIClientMock(BitbucketRepositoryType type, boolean includePullRequests,
             boolean includeWebHooks) throws IOException, InterruptedException {
         BitbucketCloudApiClient bitbucket = mock(BitbucketCloudApiClient.class);
         when(bitbucket.getRepositoryUri(any(BitbucketRepositoryType.class), any(BitbucketRepositoryProtocol.class), any(Integer.class), anyString(), anyString())).thenCallRealMethod();
@@ -64,7 +64,7 @@ public class BitbucketClientMockUtils {
         branches.add(getBranch("branch2", "707c59ce8292c927dddb6807fcf9c3c5e7c9b00f"));
         // add branches
         when(bitbucket.getBranches()).thenReturn(branches);
-        if (RepositoryType.MERCURIAL == type) {
+        if (BitbucketRepositoryType.MERCURIAL == type) {
             withMockMercurialRepos(bitbucket);
         } else {
             withMockGitRepos(bitbucket);
@@ -96,7 +96,7 @@ public class BitbucketClientMockUtils {
         return bitbucket;
     }
 
-    public static BitbucketCloudApiClient getAPIClientMock(RepositoryType type, boolean includePullRequests)
+    public static BitbucketCloudApiClient getAPIClientMock(BitbucketRepositoryType type, boolean includePullRequests)
             throws IOException, InterruptedException {
         return getAPIClientMock(type, includePullRequests, false);
     }

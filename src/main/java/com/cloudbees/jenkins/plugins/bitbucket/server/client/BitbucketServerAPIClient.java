@@ -30,6 +30,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.ArrayList;
@@ -172,10 +173,15 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                                    @NonNull BitbucketRepositoryProtocol protocol,
                                    @CheckForNull Integer protocolPortOverride,
                                    @NonNull String owner,
-                                   @NonNull String repository) throws IOException, InterruptedException {
+                                   @NonNull String repository) {
         switch (type) {
             case GIT:
-                URL url = new URL(baseURL);
+                URL url;
+                try {
+                    url = new URL(baseURL);
+                } catch (MalformedURLException e) {
+                    throw new IllegalStateException("Server URL is not a valid URL", e);
+                }
                 StringBuilder result = new StringBuilder();
                 switch (protocol) {
                     case HTTP:

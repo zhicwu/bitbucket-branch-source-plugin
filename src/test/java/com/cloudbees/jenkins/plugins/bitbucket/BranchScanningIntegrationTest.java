@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,8 @@ public class BranchScanningIntegrationTest {
 
     @Test
     public void indexingTest() throws Exception {
-        BitbucketMockApiFactory.add("http://bitbucket.test", BitbucketClientMockUtils.getAPIClientMock(RepositoryType.GIT, false));
+        BitbucketMockApiFactory.add("http://bitbucket.test", BitbucketClientMockUtils.getAPIClientMock(
+                BitbucketRepositoryType.GIT, false));
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
         BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
         source.setOwner(p);

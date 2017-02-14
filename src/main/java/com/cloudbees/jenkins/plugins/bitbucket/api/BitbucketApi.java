@@ -58,18 +58,13 @@ public interface BitbucketApi {
      * @param owner the owner
      * @param repository the repository.
      * @return the URI.
-     * @throws IOException if there was a network communications error.
-     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @NonNull
     String getRepositoryUri(@NonNull BitbucketRepositoryType type,
                             @NonNull BitbucketRepositoryProtocol protocol,
                             @CheckForNull Integer protocolPortOverride,
                             @NonNull String owner,
-                            @NonNull String repository)
-
-
-            throws IOException, InterruptedException;
+                            @NonNull String repository);
 
     /**
      * Returns the pull requests in the repository.

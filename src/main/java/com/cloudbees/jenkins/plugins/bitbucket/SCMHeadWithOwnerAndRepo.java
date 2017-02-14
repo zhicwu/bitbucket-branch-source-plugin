@@ -26,6 +26,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import java.io.IOException;
@@ -74,9 +75,9 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
             // then the temporary PR class will be resolved by HgMigrationImpl or GitMigrationImpl when the
             // context to look-up the correct target is (hopefully) available. If the context is not available
             // then worst case  we will end up triggering a rebuild on next index / event via take-over
-            return new PR(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
+            return new PR(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000", null));
         }
-        return new BranchSCMHead(getName());
+        return new BranchSCMHead(getName(), null);
     }
 
     /**
@@ -143,7 +144,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                 target = "\u0000";
             }
             return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target));
+                    new BranchSCMHead(target, BitbucketRepositoryType.MERCURIAL));
         }
 
         @Override
@@ -173,7 +174,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                 target = "\u0000";
             }
             return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target));
+                    new BranchSCMHead(target, BitbucketRepositoryType.GIT));
         }
 
         @Override

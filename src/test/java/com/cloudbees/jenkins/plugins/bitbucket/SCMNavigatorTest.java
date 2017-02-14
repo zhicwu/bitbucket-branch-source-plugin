@@ -29,6 +29,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,7 +57,7 @@ public class SCMNavigatorTest {
     @Test
     public void teamRepositoriesDiscovering() throws IOException, InterruptedException {
         BitbucketMockApiFactory.add("http://bitbucket.test",
-                BitbucketClientMockUtils.getAPIClientMock(RepositoryType.GIT, true));
+                BitbucketClientMockUtils.getAPIClientMock(BitbucketRepositoryType.GIT, true));
         BitbucketSCMNavigator navigator = new BitbucketSCMNavigator("myteam", null, null);
         navigator.setPattern("repo(.*)");
         navigator.setBitbucketServerUrl("http://bitbucket.test");
