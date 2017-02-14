@@ -40,21 +40,28 @@ public interface BitbucketApi {
     /**
      * @return the repository owner name.
      */
+    @NonNull
     String getOwner();
 
     /**
      * @return the repository name.
      */
+    @CheckForNull
     String getRepositoryName();
 
     /**
      * Returns the URI of the repository.
+     *
      * @param type the type of repository.
      * @param protocol the protocol to access the repository with.
-     * @param protocolPortOverride
-     *@param owner the owner
-     * @param repository the repository.   @return the URI.
+     * @param protocolPortOverride the port to override or {@code null} to use the default.
+     * @param owner the owner
+     * @param repository the repository.
+     * @return the URI.
+     * @throws IOException if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     String getRepositoryUri(@NonNull BitbucketRepositoryType type,
                             @NonNull BitbucketRepositoryProtocol protocol,
                             @CheckForNull Integer protocolPortOverride,
@@ -65,22 +72,29 @@ public interface BitbucketApi {
             throws IOException, InterruptedException;
 
     /**
+     * Returns the pull requests in the repository.
+     *
      * @return the list of pull requests in the repository.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     List<? extends BitbucketPullRequest> getPullRequests() throws IOException, InterruptedException;
 
     /**
+     * Returns a specific pull request.
+     *
      * @param id the pull request ID
      * @return the pull request or null if the PR does not exist
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @NonNull
-    BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException;
+    BitbucketPullRequest getPullRequestById(@NonNull Integer id) throws IOException, InterruptedException;
 
     /**
+     * Returns the repository details.
+     *
      * @return the repository specified by {@link #getOwner()}/{@link #getRepositoryName()} 
      *      (or null if repositoryName is not set)
      * @throws IOException if there was a network communications error.
@@ -97,7 +111,7 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void postCommitComment(String hash, String comment) throws IOException, InterruptedException;
+    void postCommitComment(@NonNull String hash, @NonNull String comment) throws IOException, InterruptedException;
 
     /**
      * Checks if the given path exists in the repository at the specified branch.
@@ -108,21 +122,26 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    boolean checkPathExists(String branch, String path) throws IOException, InterruptedException;
+    boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException, InterruptedException;
 
     /**
      * Gets the default branch in the repository.
+     *
      * @return the default branch in the repository.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     String getDefaultBranch() throws IOException, InterruptedException;
 
     /**
+     * Returns the branches in the repository.
+     *
      * @return the list of branches in the repository.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     List<? extends BitbucketBranch> getBranches() throws IOException, InterruptedException;
 
     /**
@@ -134,7 +153,7 @@ public interface BitbucketApi {
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
     @CheckForNull
-    BitbucketCommit resolveCommit(String hash) throws IOException, InterruptedException;
+    BitbucketCommit resolveCommit(@NonNull String hash) throws IOException, InterruptedException;
 
     /**
      * Resolve the head commit hash of the pull request source repository branch.
@@ -144,7 +163,8 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    String resolveSourceFullHash(BitbucketPullRequest pull) throws IOException, InterruptedException;
+    @NonNull
+    String resolveSourceFullHash(@NonNull BitbucketPullRequest pull) throws IOException, InterruptedException;
 
     /**
      * Register a webhook on the repository.
@@ -153,7 +173,7 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void registerCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException;
+    void registerCommitWebHook(@NonNull BitbucketWebHook hook) throws IOException, InterruptedException;
 
     /**
      * Remove the webhook (ID field required) from the repository.
@@ -162,17 +182,22 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void removeCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException;
+    void removeCommitWebHook(@NonNull BitbucketWebHook hook) throws IOException, InterruptedException;
 
     /**
+     * Returns the webhooks defined in the repository.
+     *
      * @return the list of webhooks registered in the repository.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     List<? extends BitbucketWebHook> getWebHooks() throws IOException, InterruptedException;
 
     /**
-     * @return the team profile of the current owner, or null if {@link #getOwner()} is not a team ID.
+     * Returns the team of the current owner or {@code null} if the current owner is not a team.
+     *
+     * @return the team profile of the current owner, or {@code null} if {@link #getOwner()} is not a team ID.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
@@ -189,7 +214,8 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    List<? extends BitbucketRepository> getRepositories(UserRoleInRepository role)
+    @NonNull
+    List<? extends BitbucketRepository> getRepositories(@CheckForNull UserRoleInRepository role)
             throws IOException, InterruptedException;
 
     /**
@@ -199,6 +225,7 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
+    @NonNull
     List<? extends BitbucketRepository> getRepositories() throws IOException, InterruptedException;
 
     /**
@@ -208,11 +235,12 @@ public interface BitbucketApi {
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    void postBuildStatus(BitbucketBuildStatus status) throws IOException, InterruptedException;
+    void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException, InterruptedException;
 
     /**
-     * @return true if the repository ({@link #getOwner()}/{@link #getRepositoryName()}) is private, false otherwise
-     *          (if it's public or does not exists).
+     * Returns {@code true} if and only if the repository is private.
+     *
+     * @return {@code true} if the repository ({@link #getOwner()}/{@link #getRepositoryName()}) is private.
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */

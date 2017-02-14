@@ -329,7 +329,7 @@ public class BitbucketSCMSource extends SCMSource {
 
                 // Resolve full hash. See https://bitbucket.org/site/master/issues/11415/pull-request-api-should-return-full-commit
 
-                String hash = null;
+                String hash;
                 try {
                     hash = bitbucket.resolveSourceFullHash(pull);
                 } catch (BitbucketRequestException e) {
@@ -337,28 +337,26 @@ public class BitbucketSCMSource extends SCMSource {
                         listener.getLogger().println(
                                 "Do not have permission to view PR from " + pull.getSource().getRepository().getFullName() + " and branch "
                                         + pull.getSource().getBranch().getName());
+                        // the credentials do not have permission, so we should not observe the PR ever
+                        // the PR is dead to us, so this is the one case where we can squash the exception.
+                        continue;
                     } else {
-                        e.printStackTrace(
-                                listener.error("Cannot resolve hash: [%s]%n", pull.getSource().getCommit().getHash()));
+                        // this is some other unexpected error, we need to abort observing, so throw.
+                        throw e;
                     }
-                    continue;
                 }
-                if (hash != null) {
-                    getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
-                    livePRs.add(pull.getId());
-                    getPullRequestContributorCache().put(pull.getId(),
-                            // TODO get more details on the author
-                            new ContributorMetadataAction(pull.getAuthorLogin(), null, null)
-                    );
-                    observe(criteria, observer, listener,
-                            pull.getSource().getRepository().getOwnerName(),
-                            pull.getSource().getRepository().getRepositoryName(),
-                            pull.getSource().getBranch().getName(),
-                            hash,
-                            pull);
-                } else {
-                    listener.getLogger().format("Can not resolve hash: [%s]%n", pull.getSource().getCommit().getHash());
-                }
+                getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
+                livePRs.add(pull.getId());
+                getPullRequestContributorCache().put(pull.getId(),
+                        // TODO get more details on the author
+                        new ContributorMetadataAction(pull.getAuthorLogin(), null, null)
+                );
+                observe(criteria, observer, listener,
+                        pull.getSource().getRepository().getOwnerName(),
+                        pull.getSource().getRepository().getRepositoryName(),
+                        pull.getSource().getBranch().getName(),
+                        hash,
+                        pull);
                 if (!observer.isObserving()) {
                     return;
                 }

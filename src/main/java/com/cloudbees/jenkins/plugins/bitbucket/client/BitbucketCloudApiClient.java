@@ -98,16 +98,6 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         connectionManager.getParams().setMaxTotalConnections(22);
     }
 
-    public BitbucketCloudApiClient(String username, String password, String owner, String repositoryName) {
-        if (!StringUtils.isBlank(username) && !StringUtils.isBlank(password)) {
-            this.credentials = new UsernamePasswordCredentials(username, password);
-        } else {
-            this.credentials = null;
-        }
-        this.owner = owner;
-        this.repositoryName = repositoryName;
-    }
-
     public BitbucketCloudApiClient(String owner, String repositoryName, StandardUsernamePasswordCredentials creds) {
         if (creds != null) {
             this.credentials = new UsernamePasswordCredentials(creds.getUsername(), Secret.toString(creds.getPassword()));
@@ -118,17 +108,20 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         this.repositoryName = repositoryName;
     }
 
-    public BitbucketCloudApiClient(String owner, StandardUsernamePasswordCredentials creds) {
-        this(owner, null, creds);
-    }
-
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public String getOwner() {
         return owner;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
+    @CheckForNull
     public String getRepositoryName() {
         return repositoryName;
     }
@@ -136,6 +129,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     /**
      * {@inheritDoc}
      */
+    @NonNull
     @Override
     public String getRepositoryUri(@NonNull BitbucketRepositoryType type,
                                    @NonNull BitbucketRepositoryProtocol protocol,
@@ -175,7 +169,10 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return null;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public List<BitbucketPullRequestValue> getPullRequests() throws InterruptedException, IOException {
         String urlTemplate = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests?page=%d&pagelen=50";
@@ -207,10 +204,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return pullRequests;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     @NonNull
-    public BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException {
+    public BitbucketPullRequest getPullRequestById(@NonNull Integer id) throws IOException, InterruptedException {
         String url = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/pullrequests/" + id;
         String response = getRequest(url);
         try {
@@ -220,7 +219,9 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     @NonNull
     public BitbucketRepository getRepository() throws IOException, InterruptedException {
@@ -241,9 +242,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         deleteRequest(path);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void postCommitComment(String hash, String comment) throws IOException, InterruptedException {
+    public void postCommitComment(@NonNull String hash, @NonNull String comment) throws IOException, InterruptedException {
         String path = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/changesets/" + hash + "/comments";
         try {
             NameValuePair content = new NameValuePair("content", comment);
@@ -260,13 +263,19 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         deleteRequest(path);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public boolean checkPathExists(String branch, String path) throws IOException, InterruptedException {
+    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException, InterruptedException {
         int status = getRequestStatus(V1_API_BASE_URL + owner + "/" + repositoryName + "/raw/" + branch + "/" + path);
         return status == HttpStatus.SC_OK;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public String getDefaultBranch() throws IOException, InterruptedException {
         String url = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/main-branch";
@@ -279,7 +288,10 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         throw new IOException("I/O error when parsing response from URL: " + url);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public List<BitbucketCloudBranch> getBranches() throws IOException, InterruptedException {
         String url = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/branches";
@@ -291,10 +303,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    @javax.annotation.CheckForNull
-    public BitbucketCommit resolveCommit(String hash) throws IOException, InterruptedException {
+    @CheckForNull
+    public BitbucketCommit resolveCommit(@NonNull String hash) throws IOException, InterruptedException {
         String url = V2_API_BASE_URL + owner + "/" + repositoryName + "/commit/" + hash;
         String response;
         try {
@@ -309,19 +323,16 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
-    @CheckForNull
-    public String resolveSourceFullHash(BitbucketPullRequest pull) throws IOException, InterruptedException {
+    public String resolveSourceFullHash(@NonNull BitbucketPullRequest pull) throws IOException, InterruptedException {
         String url = V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" +
                 pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit()
                 .getHash();
-        String response;
-        try {
-            response = getRequest(url);
-        } catch (FileNotFoundException e) {
-            return null;
-        }
+        String response = getRequest(url);
         try {
             return parse(response, BitbucketCloudCommit.class).getHash();
         } catch (IOException e) {
@@ -329,22 +340,29 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void registerCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException {
+    public void registerCommitWebHook(@NonNull BitbucketWebHook hook) throws IOException, InterruptedException {
         postRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks", asJson(hook));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void removeCommitWebHook(BitbucketWebHook hook) throws IOException, InterruptedException {
+    public void removeCommitWebHook(@NonNull BitbucketWebHook hook) throws IOException, InterruptedException {
         if (StringUtils.isBlank(hook.getUuid())) {
             throw new BitbucketException("Hook UUID required");
         }
         deleteRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks/" + URLEncoder.encode(hook.getUuid(), "UTF-8"));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public List<BitbucketRepositoryHook> getWebHooks() throws IOException, InterruptedException {
         String urlTemplate = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/hooks?page=%d&pagelen=50";
@@ -370,12 +388,18 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void postBuildStatus(BitbucketBuildStatus status) throws IOException {
+    public void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException {
         String path = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/commit/" + status.getHash() + "/statuses/build";;
         postRequest(path, serialize(status));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean isPrivate() throws IOException, InterruptedException {
         return getRepository().isPrivate();
@@ -393,7 +417,9 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return mapper.writeValueAsString(hook);
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     @CheckForNull
     public BitbucketTeam getTeam() throws IOException, InterruptedException {
@@ -410,8 +436,9 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      * The role parameter only makes sense when the request is authenticated, so
      * if there is no auth information ({@link #credentials}) the role will be omited.
      */
+    @NonNull
     @Override
-    public List<BitbucketCloudRepository> getRepositories(UserRoleInRepository role)
+    public List<BitbucketCloudRepository> getRepositories(@CheckForNull UserRoleInRepository role)
             throws InterruptedException, IOException {
         String urlTemplate;
         if (role != null && getLogin() != null) {
@@ -444,6 +471,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     }
 
     /** {@inheritDoc} */
+    @NonNull
     @Override
     public List<BitbucketCloudRepository> getRepositories() throws IOException, InterruptedException {
         return getRepositories(null);

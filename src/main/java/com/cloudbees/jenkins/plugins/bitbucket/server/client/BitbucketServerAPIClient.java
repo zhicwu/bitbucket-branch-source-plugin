@@ -25,6 +25,8 @@ package com.cloudbees.jenkins.plugins.bitbucket.server.client;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -46,7 +48,6 @@ import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
@@ -120,16 +121,6 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
     private String baseURL;
 
-    public BitbucketServerAPIClient(String baseURL, String username, String password, String owner, String repositoryName, boolean userCentric) {
-        if (!StringUtils.isBlank(username) && !StringUtils.isBlank(password)) {
-            this.credentials = new UsernamePasswordCredentials(username, password);
-        }
-        this.userCentric = userCentric;
-        this.owner = owner;
-        this.repositoryName = repositoryName;
-        this.baseURL = baseURL;
-    }
-
     public BitbucketServerAPIClient(String baseURL, String owner, String repositoryName, StandardUsernamePasswordCredentials creds, boolean userCentric) {
         if (creds != null) {
             this.credentials = new UsernamePasswordCredentials(creds.getUsername(), Secret.toString(creds.getPassword()));
@@ -140,14 +131,11 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         this.baseURL = baseURL;
     }
 
-    public BitbucketServerAPIClient(String baseURL, String owner, StandardUsernamePasswordCredentials creds, boolean userCentric) {
-        this(baseURL, owner, null, creds, userCentric);
-    }
-
     /**
      * Bitbucket Server manages two top level entities, owner and/or project.
      * Only one of them makes sense for a specific client object.
      */
+    @NonNull
     @Override
     public String getOwner() {
         return owner;
@@ -166,17 +154,25 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return userCentric ? "~" + owner : owner;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
+    @CheckForNull
     public String getRepositoryName() {
         return repositoryName;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
-    public String getRepositoryUri(BitbucketRepositoryType type,
-                                   BitbucketRepositoryProtocol protocol,
-                                   Integer protocolPortOverride, String owner,
-                                   String repository) throws IOException, InterruptedException {
+    public String getRepositoryUri(@NonNull BitbucketRepositoryType type,
+                                   @NonNull BitbucketRepositoryProtocol protocol,
+                                   @CheckForNull Integer protocolPortOverride,
+                                   @NonNull String owner,
+                                   @NonNull String repository) throws IOException, InterruptedException {
         switch (type) {
             case GIT:
                 URL url = new URL(baseURL);
@@ -220,7 +216,10 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
     @Override
     public List<BitbucketServerPullRequest> getPullRequests() throws IOException, InterruptedException {
         String url = String.format(API_PULL_REQUESTS_PATH, getUserCentricOwner(), repositoryName, 0);
@@ -248,9 +247,12 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public BitbucketPullRequest getPullRequestById(Integer id) throws IOException {
+    @NonNull
+    public BitbucketPullRequest getPullRequestById(@NonNull Integer id) throws IOException {
         String url = String.format(API_PULL_REQUEST_PATH, getUserCentricOwner(), repositoryName, id);
         String response = getRequest(url);
         try {
@@ -260,8 +262,11 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
+    @NonNull
     public BitbucketRepository getRepository() throws IOException {
         if (repositoryName == null) {
             throw new UnsupportedOperationException(
@@ -276,24 +281,31 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void postCommitComment(String hash, String comment) throws IOException {
+    public void postCommitComment(@NonNull String hash, @NonNull String comment) throws IOException {
         postRequest(String.format(API_COMMIT_COMMENT_PATH, getUserCentricOwner(), repositoryName, hash), new NameValuePair[]{ new NameValuePair("text", comment) });
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void postBuildStatus(BitbucketBuildStatus status) throws IOException {
+    public void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException {
         postRequest(String.format(API_COMMIT_STATUS_PATH, status.getHash()), serialize(status));
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public boolean checkPathExists(String branch, String path) throws IOException {
+    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException {
         return HttpStatus.SC_OK == getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, path, branch));
     }
 
+    @NonNull
     @Override
     public String getDefaultBranch() throws IOException {
         String url = String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName);
@@ -305,8 +317,11 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
+    @NonNull
     public List<BitbucketServerBranch> getBranches() throws IOException, InterruptedException {
         String url = String.format(API_BRANCHES_PATH, getUserCentricOwner(), repositoryName, 0);
 
@@ -334,7 +349,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
     /** {@inheritDoc} */
     @Override
-    public BitbucketCommit resolveCommit(String hash) throws IOException {
+    public BitbucketCommit resolveCommit(@NonNull String hash) throws IOException {
         String url = String.format(API_COMMITS_PATH, getUserCentricOwner(), repositoryName, hash);
         try {
             String response = getRequest(url);
@@ -345,21 +360,23 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     /** {@inheritDoc} */
+    @NonNull
     @Override
-    public String resolveSourceFullHash(BitbucketPullRequest pull) {
+    public String resolveSourceFullHash(@NonNull BitbucketPullRequest pull) {
         return pull.getSource().getCommit().getHash();
     }
 
     @Override
-    public void registerCommitWebHook(BitbucketWebHook hook) {
+    public void registerCommitWebHook(@NonNull BitbucketWebHook hook) {
         // TODO
     }
 
     @Override
-    public void removeCommitWebHook(BitbucketWebHook hook) {
+    public void removeCommitWebHook(@NonNull BitbucketWebHook hook) {
         // TODO
     }
 
+    @NonNull
     @Override
     public List<BitbucketWebHook> getWebHooks() {
         // TODO
@@ -387,8 +404,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     /**
      * The role parameter is ignored for Bitbucket Server.
      */
+    @NonNull
     @Override
-    public List<BitbucketServerRepository> getRepositories(UserRoleInRepository role)
+    public List<BitbucketServerRepository> getRepositories(@CheckForNull UserRoleInRepository role)
             throws IOException, InterruptedException {
         String url = String.format(API_REPOSITORIES_PATH, getUserCentricOwner(), 0);
 
@@ -415,6 +433,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     /** {@inheritDoc} */
+    @NonNull
     @Override
     public List<BitbucketServerRepository> getRepositories() throws IOException, InterruptedException {
         return getRepositories(null);

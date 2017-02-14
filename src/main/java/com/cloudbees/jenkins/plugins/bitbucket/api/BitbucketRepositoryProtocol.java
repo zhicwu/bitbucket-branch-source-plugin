@@ -29,14 +29,14 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 public enum BitbucketRepositoryProtocol {
 
     /**
-     * Git repository.
+     * SSH protocol.
      */
     SSH("ssh"),
 
     /**
-     * Mercurial repository.
+     * HTTP protocol.
      */
-    HTTP("https");
+    HTTP("http");
 
     private String type;
 
