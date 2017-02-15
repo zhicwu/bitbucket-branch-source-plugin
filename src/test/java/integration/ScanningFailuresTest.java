@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import jenkins.branch.Branch;
 import jenkins.branch.BranchSource;
 import jenkins.plugins.git.GitSampleRepoRule;
@@ -62,7 +64,48 @@ public class ScanningFailuresTest {
     }
 
     @Test
-    public void getBranchesFails() throws Exception {
+    public void getBranchesFailsWithIOException() throws Exception {
+        getBranchesFails(new Callable<Throwable>() {
+            @Override
+            public Throwable call() throws Exception {
+                return new IOException(message);
+            }
+        }, Result.FAILURE);
+    }
+
+    @Test
+    public void getBranchesFailsWithInterruptedException() throws Exception {
+        getBranchesFails(new Callable<Throwable>() {
+            @Override
+            public Throwable call() throws Exception {
+                return new InterruptedException(message);
+            }
+        }, Result.ABORTED);
+    }
+
+    @Test
+    public void getBranchesFailsWithRuntimeException() throws Exception {
+        getBranchesFails(new Callable<Throwable>() {
+            @Override
+            public Throwable call() throws Exception {
+                return new RuntimeException(message);
+            }
+        }, Result.FAILURE);
+    }
+
+    @Test
+    public void getBranchesFailsWithError() throws Exception {
+        getBranchesFails(new Callable<Throwable>() {
+            @Override
+            public Throwable call() throws Exception {
+                return new Error(message);
+            }
+        }, Result.NOT_BUILT);
+    }
+
+    // We just need to verify the different types of exception being propagated for one source of exceptions
+    // the others should all propagate likewise if one type succeeds.
+    private void getBranchesFails(Callable<Throwable> exception, Result expectedResult) throws Exception {
         // we are going to set up just enough fake bitbucket
         sampleRepo.init();
         sampleRepo
@@ -110,15 +153,21 @@ public class ScanningFailuresTest {
 
         // an error in getBranches()
 
-        when(api.getBranches()).thenThrow(new IOException(message));
+        when(api.getBranches()).thenThrow(exception.call());
 
-        mp.scheduleBuild2(0).getFuture().get();
-        assertThat(mp.getIndexing().getResult(), is(Result.FAILURE));
-        assertThat(FileUtils.readFileToString(mp.getIndexing().getLogFile()), containsString(message));
+        if (Result.NOT_BUILT.equals(expectedResult)) {
+            // when not built the future will never complete and the log may not contain the exception stack trace
+            mp.scheduleBuild2(0);
+            j.waitUntilNoActivity();
+            assertThat(mp.getIndexing().getResult(), is(expectedResult));
+        } else {
+            mp.scheduleBuild2(0).getFuture().get(10, TimeUnit.SECONDS);
+            assertThat(mp.getIndexing().getResult(), is(expectedResult));
+            assertThat(FileUtils.readFileToString(mp.getIndexing().getLogFile()), containsString(message));
+        }
         master = mp.getItem("master");
         assertThat(master, notNullValue());
         assertThat(mp.getProjectFactory().getBranch(master), not(instanceOf(Branch.Dead.class)));
-
     }
 
     @Test
