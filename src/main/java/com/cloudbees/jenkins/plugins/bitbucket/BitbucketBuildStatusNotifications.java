@@ -45,6 +45,7 @@ import hudson.plugins.mercurial.MercurialTagAction;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import java.io.File;
+import java.io.IOException;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
@@ -60,7 +61,8 @@ import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
  */
 public class BitbucketBuildStatusNotifications {
 
-    private static void createBuildCommitStatus(@NonNull Run<?,?> build, @NonNull TaskListener listener, @NonNull BitbucketApi bitbucket) {
+    private static void createBuildCommitStatus(@NonNull Run<?,?> build, @NonNull TaskListener listener, @NonNull BitbucketApi bitbucket)
+            throws IOException, InterruptedException {
         String revision = extractRevision(build);
         if (revision != null) {
             Result result = build.getResult();
@@ -110,7 +112,8 @@ public class BitbucketBuildStatusNotifications {
         return revision;
     }
 
-    private static void createPullRequestCommitStatus(Run<?,?> build, TaskListener listener, BitbucketApi bitbucket) {
+    private static void createPullRequestCommitStatus(Run<?,?> build, TaskListener listener, BitbucketApi bitbucket)
+            throws IOException, InterruptedException {
         createBuildCommitStatus(build, listener, bitbucket);
     }
 
@@ -150,7 +153,8 @@ public class BitbucketBuildStatusNotifications {
         return null;
     }
     
-    private static void sendNotifications(Run<?, ?> build, TaskListener listener) {
+    private static void sendNotifications(Run<?, ?> build, TaskListener listener)
+            throws IOException, InterruptedException {
         BitbucketSCMSource source = lookUpSCMSource(build);
         if (source != null && extractRevision(build) != null) {
             SCMHead head = SCMHead.HeadByItem.findHead(build.getParent());
@@ -184,7 +188,11 @@ public class BitbucketBuildStatusNotifications {
 
         @Override 
         public void onCompleted(Run<?, ?> build, TaskListener listener) {
-            sendNotifications(build, listener);
+            try {
+                sendNotifications(build, listener);
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace(listener.error("Could not send notifications"));
+            }
         }
     }
 }

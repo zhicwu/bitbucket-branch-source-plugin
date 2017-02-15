@@ -24,10 +24,13 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
@@ -36,7 +39,6 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.Action;
@@ -87,6 +89,7 @@ import jenkins.scm.api.metadata.PrimaryInstanceMetadataAction;
 import jenkins.scm.impl.ChangeRequestSCMHeadCategory;
 import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.WordUtils;
 import org.eclipse.jgit.lib.Constants;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -153,12 +156,7 @@ public class BitbucketSCMSource extends SCMSource {
     /**
      * Repository type.
      */
-    private RepositoryType repositoryType;
-
-    /**
-     * Bitbucket API client connector.
-     */
-    private transient BitbucketApiConnector bitbucketConnector;
+    private BitbucketRepositoryType repositoryType;
 
     /**
      * The cache of pull request titles for each open PR.
@@ -264,38 +262,48 @@ public class BitbucketSCMSource extends SCMSource {
         return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
-    public void setBitbucketConnector(@NonNull BitbucketApiConnector bitbucketConnector) {
-        this.bitbucketConnector = bitbucketConnector;
-    }
-
-    BitbucketApiConnector getBitbucketConnector() {
-        if (bitbucketConnector == null) {
-            bitbucketConnector = new BitbucketApiConnector(bitbucketServerUrl);
-        }
-        return bitbucketConnector;
-    }
-
-    public String getRemote(@NonNull String repoOwner, @NonNull String repository) {
-        return getUriResolver().getRepositoryUri(repoOwner, repository, getRepositoryType());
-    }
-
-    public RepositoryType getRepositoryType() {
-        if (repositoryType == null) {
-            BitbucketRepository r = getBitbucketConnector().create(repoOwner, repository, getScanCredentials()).getRepository();
-            if (r == null) {
-                throw new AssertionError("Not found repository: " + repoOwner + "/" + repository);
+    public String getRemote(@NonNull String repoOwner, @NonNull String repository, BitbucketRepositoryType repositoryType) {
+        assert repositoryType != null;
+        BitbucketRepositoryProtocol protocol;
+        Integer protocolPortOverride = null;
+        if (StringUtils.isBlank(checkoutCredentialsId)) {
+            protocol = BitbucketRepositoryProtocol.HTTP;
+        } else if (getCheckoutCredentials() instanceof SSHUserPrivateKey) {
+            protocol = BitbucketRepositoryProtocol.SSH;
+            if (sshPort > 0) {
+                protocolPortOverride = sshPort;
             }
-            repositoryType = RepositoryType.fromString(r.getScm());
+        } else {
+            protocol = BitbucketRepositoryProtocol.HTTP;
+        }
+        return buildBitbucketClient().getRepositoryUri(repositoryType, protocol, protocolPortOverride, repoOwner, repository);
+    }
+
+    public BitbucketRepositoryType getRepositoryType() throws IOException, InterruptedException {
+        if (repositoryType == null) {
+            repositoryType = BitbucketRepositoryType.fromString(buildBitbucketClient().getRepository().getScm());
         }
         return repositoryType;
     }
 
     public BitbucketApi buildBitbucketClient() {
-        return getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+        return BitbucketApiFactory.newInstance(bitbucketServerUrl, getScanCredentials(), repoOwner, repository);
     }
 
     public BitbucketApi buildBitbucketClient(PullRequestSCMHead head) {
-        return getBitbucketConnector().create(head.getRepoOwner(), head.getRepository(), getScanCredentials());
+        return BitbucketApiFactory.newInstance(bitbucketServerUrl, getScanCredentials(), head.getRepoOwner(), head.getRepository());
+    }
+
+    @Override
+    public void afterSave() {
+        try {
+            getRepositoryType();
+        } catch (InterruptedException | IOException e) {
+            LOGGER.log(Level.FINE,
+                    "Could not determine repository type of " + getRepoOwner() + "/" + getRepository() + " on "
+                            + StringUtils.defaultIfBlank(getBitbucketServerUrl(), "bitbucket.org") + " for "
+                            + getOwner(), e);
+        }
     }
 
     @Override
@@ -308,6 +316,8 @@ public class BitbucketSCMSource extends SCMSource {
         } else {
             listener.getLogger().format("Connecting to %s using %s%n", bitbucketUrl(), CredentialsNameProvider.name(scanCredentials));
         }
+        // this has the side-effect of ensuring that repository type is always populated.
+        listener.getLogger().format("Repository type: %s%n", WordUtils.capitalizeFully(getRepositoryType().name()));
 
         // Search branches
         retrieveBranches(criteria, observer, listener);
@@ -320,7 +330,7 @@ public class BitbucketSCMSource extends SCMSource {
         String fullName = repoOwner + "/" + repository;
         listener.getLogger().println("Looking up " + fullName + " for pull requests");
 
-        final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+        final BitbucketApi bitbucket = buildBitbucketClient();
         if (bitbucket.isPrivate()) {
             List<? extends BitbucketPullRequest> pulls = bitbucket.getPullRequests();
             Set<String> livePRs = new HashSet<>();
@@ -332,7 +342,7 @@ public class BitbucketSCMSource extends SCMSource {
 
                 // Resolve full hash. See https://bitbucket.org/site/master/issues/11415/pull-request-api-should-return-full-commit
 
-                String hash = null;
+                String hash;
                 try {
                     hash = bitbucket.resolveSourceFullHash(pull);
                 } catch (BitbucketRequestException e) {
@@ -340,28 +350,26 @@ public class BitbucketSCMSource extends SCMSource {
                         listener.getLogger().println(
                                 "Do not have permission to view PR from " + pull.getSource().getRepository().getFullName() + " and branch "
                                         + pull.getSource().getBranch().getName());
+                        // the credentials do not have permission, so we should not observe the PR ever
+                        // the PR is dead to us, so this is the one case where we can squash the exception.
+                        continue;
                     } else {
-                        e.printStackTrace(
-                                listener.error("Cannot resolve hash: [%s]%n", pull.getSource().getCommit().getHash()));
+                        // this is some other unexpected error, we need to abort observing, so throw.
+                        throw e;
                     }
-                    continue;
                 }
-                if (hash != null) {
-                    getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
-                    livePRs.add(pull.getId());
-                    getPullRequestContributorCache().put(pull.getId(),
-                            // TODO get more details on the author
-                            new ContributorMetadataAction(pull.getAuthorLogin(), null, null)
-                    );
-                    observe(criteria, observer, listener,
-                            pull.getSource().getRepository().getOwnerName(),
-                            pull.getSource().getRepository().getRepositoryName(),
-                            pull.getSource().getBranch().getName(),
-                            hash,
-                            pull);
-                } else {
-                    listener.getLogger().format("Can not resolve hash: [%s]%n", pull.getSource().getCommit().getHash());
-                }
+                getPullRequestTitleCache().put(pull.getId(), StringUtils.defaultString(pull.getTitle()));
+                livePRs.add(pull.getId());
+                getPullRequestContributorCache().put(pull.getId(),
+                        // TODO get more details on the author
+                        new ContributorMetadataAction(pull.getAuthorLogin(), null, null)
+                );
+                observe(criteria, observer, listener,
+                        pull.getSource().getRepository().getOwnerName(),
+                        pull.getSource().getRepository().getRepositoryName(),
+                        pull.getSource().getBranch().getName(),
+                        hash,
+                        pull);
                 if (!observer.isObserving()) {
                     return;
                 }
@@ -379,7 +387,7 @@ public class BitbucketSCMSource extends SCMSource {
         String fullName = repoOwner + "/" + repository;
         listener.getLogger().println("Looking up " + fullName + " for branches");
 
-        final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+        final BitbucketApi bitbucket = buildBitbucketClient();
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch branch : branches) {
             checkInterrupt();
@@ -391,11 +399,11 @@ public class BitbucketSCMSource extends SCMSource {
 
     private void observe(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener,
                          final String owner, final String repositoryName,
-                         final String branchName, final String hash, BitbucketPullRequest pr) throws IOException {
+                         final String branchName, final String hash, BitbucketPullRequest pr) throws IOException, InterruptedException {
         if (isExcluded(branchName)) {
             return;
         }
-        final BitbucketApi bitbucket = getBitbucketConnector().create(owner, repositoryName, getScanCredentials());
+        final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(bitbucketServerUrl, getScanCredentials(), owner, repositoryName);
         SCMSourceCriteria branchCriteria = criteria;
         if (branchCriteria != null) {
             SCMSourceCriteria.Probe probe = new SCMSourceCriteria.Probe() {
@@ -407,18 +415,29 @@ public class BitbucketSCMSource extends SCMSource {
 
                 @Override
                 public long lastModified() {
-                    BitbucketCommit commit = bitbucket.resolveCommit(hash);
-                    if (commit == null) {
+                    try {
+                        BitbucketCommit commit = bitbucket.resolveCommit(hash);
+                        if (commit == null) {
+                            listener.getLogger().format("Can not resolve commit by hash [%s] on repository %s/%s%n",
+                                    hash, bitbucket.getOwner(), bitbucket.getRepositoryName());
+                            return 0;
+                        }
+                        return commit.getDateMillis();
+                    } catch (InterruptedException | IOException e) {
                         listener.getLogger().format("Can not resolve commit by hash [%s] on repository %s/%s%n",
                                 hash, bitbucket.getOwner(), bitbucket.getRepositoryName());
                         return 0;
                     }
-                    return commit.getDateMillis();
                 }
 
                 @Override
                 public boolean exists(@NonNull String path) throws IOException {
-                    return bitbucket.checkPathExists(branchName, path);
+                    try {
+                        // TODO should be checking the revision not the head
+                        return bitbucket.checkPathExists(branchName, path);
+                    } catch (InterruptedException e) {
+                        throw new IOException("Interrupted", e);
+                    }
                 }
             };
             if (branchCriteria.isHead(probe, listener)) {
@@ -428,11 +447,12 @@ public class BitbucketSCMSource extends SCMSource {
                 return;
             }
         }
+        BitbucketRepositoryType repositoryType = getRepositoryType();
         SCMRevision revision;
         SCMHead head = pr != null
-                ? new PullRequestSCMHead(owner, repositoryName, branchName, pr)
-                : new BranchSCMHead(branchName);
-        if (getRepositoryType() == RepositoryType.MERCURIAL) {
+                ? new PullRequestSCMHead(owner, repositoryName, repositoryType, branchName, pr)
+                : new BranchSCMHead(branchName, repositoryType);
+        if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
             revision = new MercurialRevision(head, hash);
         } else {
             revision = new AbstractGitSCMSource.SCMRevisionImpl(head, hash);
@@ -445,12 +465,8 @@ public class BitbucketSCMSource extends SCMSource {
     @Override
     protected SCMRevision retrieve(SCMHead head, TaskListener listener) throws IOException, InterruptedException {
         BitbucketApi bitbucket = head instanceof PullRequestSCMHead
-                ? getBitbucketConnector().create(
-                        ((PullRequestSCMHead) head).getRepoOwner(),
-                        ((PullRequestSCMHead) head).getRepository(),
-                        getScanCredentials()
-                )
-                : getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+                ? buildBitbucketClient((PullRequestSCMHead) head)
+                : buildBitbucketClient();
         String branchName = head instanceof PullRequestSCMHead ? ((PullRequestSCMHead) head).getBranchName() : head.getName();
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
         for (BitbucketBranch b : branches) {
@@ -463,7 +479,7 @@ public class BitbucketSCMSource extends SCMSource {
                     }
                     return null;
                 }
-                if (getRepositoryType() == RepositoryType.MERCURIAL) {
+                if (getRepositoryType() == BitbucketRepositoryType.MERCURIAL) {
                     return new MercurialRevision(head, b.getRawNode());
                 } else {
                     return new AbstractGitSCMSource.SCMRevisionImpl(head, b.getRawNode());
@@ -481,10 +497,36 @@ public class BitbucketSCMSource extends SCMSource {
 
     @Override
     public SCM build(SCMHead head, SCMRevision revision) {
+        BitbucketRepositoryType repositoryType;
+        if (head instanceof PullRequestSCMHead) {
+            repositoryType = ((PullRequestSCMHead) head).getRepositoryType();
+        } else if (head instanceof BranchSCMHead) {
+            repositoryType = ((BranchSCMHead) head).getRepositoryType();
+        } else {
+            throw new IllegalArgumentException("Either PullRequestSCMHead or BranchSCMHead required as parameter");
+        }
+        if (repositoryType == null) {
+            if (revision instanceof MercurialRevision) {
+                repositoryType = BitbucketRepositoryType.MERCURIAL;
+            } else if (revision instanceof AbstractGitSCMSource.SCMRevisionImpl) {
+                repositoryType = BitbucketRepositoryType.GIT;
+            } else {
+                try {
+                    repositoryType = getRepositoryType();
+                } catch (IOException | InterruptedException e) {
+                    repositoryType = BitbucketRepositoryType.GIT;
+                    LOGGER.log(Level.SEVERE,
+                            "Could not determine repository type of " + getRepoOwner() + "/" + getRepository()
+                                    + " on "  + StringUtils.defaultIfBlank(getBitbucketServerUrl(), "bitbucket.org")
+                                    + " for " + getOwner() + " assuming " + repositoryType, e);
+                }
+            }
+        }
         if (head instanceof PullRequestSCMHead) {
             PullRequestSCMHead h = (PullRequestSCMHead) head;
-            if (getRepositoryType() == RepositoryType.MERCURIAL) {
-                MercurialSCM scm = new MercurialSCM(getRemote(h.getRepoOwner(), h.getRepository()));
+            if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
+                MercurialSCM scm = new MercurialSCM(getRemote(h.getRepoOwner(), h.getRepository(),
+                        BitbucketRepositoryType.MERCURIAL));
                 // If no revision specified the branch name will be used as revision
                 scm.setRevision(revision instanceof MercurialRevision
                         ? ((MercurialRevision) revision).getHash()
@@ -504,41 +546,39 @@ public class BitbucketSCMSource extends SCMSource {
                         null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
             }
         }
-        if (head instanceof BranchSCMHead) {
-            if (getRepositoryType() == RepositoryType.MERCURIAL) {
-                MercurialSCM scm = new MercurialSCM(getRemote(repoOwner, repository));
-                // If no revision specified the branch name will be used as revision
-                scm.setRevision(revision instanceof MercurialRevision
-                        ? ((MercurialRevision) revision).getHash()
-                        : head.getName()
-                );
-                scm.setRevisionType(RevisionType.BRANCH);
-                scm.setCredentialsId(getCheckoutEffectiveCredentials());
-                return scm;
-            } else {
-                // Defaults to Git
-                BuildChooser buildChooser = revision instanceof AbstractGitSCMSource.SCMRevisionImpl
-                        ? new SpecificRevisionBuildChooser((AbstractGitSCMSource.SCMRevisionImpl) revision)
-                        : new DefaultBuildChooser();
-                return new GitSCM(getGitRemoteConfigs((BranchSCMHead)head),
-                        Collections.singletonList(new BranchSpec(head.getName())),
-                        false, Collections.<SubmoduleConfig>emptyList(),
-                        null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
-            }
+        // head instanceof BranchSCMHead
+        if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
+            MercurialSCM scm = new MercurialSCM(getRemote(repoOwner, repository, BitbucketRepositoryType.MERCURIAL));
+            // If no revision specified the branch name will be used as revision
+            scm.setRevision(revision instanceof MercurialRevision
+                    ? ((MercurialRevision) revision).getHash()
+                    : head.getName()
+            );
+            scm.setRevisionType(RevisionType.BRANCH);
+            scm.setCredentialsId(getCheckoutEffectiveCredentials());
+            return scm;
+        } else {
+            // Defaults to Git
+            BuildChooser buildChooser = revision instanceof AbstractGitSCMSource.SCMRevisionImpl
+                    ? new SpecificRevisionBuildChooser((AbstractGitSCMSource.SCMRevisionImpl) revision)
+                    : new DefaultBuildChooser();
+            return new GitSCM(getGitRemoteConfigs((BranchSCMHead)head),
+                    Collections.singletonList(new BranchSpec(head.getName())),
+                    false, Collections.<SubmoduleConfig>emptyList(),
+                    null, null, Collections.<GitSCMExtension>singletonList(new BuildChooserSetting(buildChooser)));
         }
-        throw new IllegalArgumentException("Either PullRequestSCMHead or BranchSCMHead required as parameter");
     }
 
     protected List<UserRemoteConfig> getGitRemoteConfigs(BranchSCMHead head) {
         List<UserRemoteConfig> result = new ArrayList<UserRemoteConfig>();
-        String remote = getRemote(repoOwner, repository);
+        String remote = getRemote(repoOwner, repository, BitbucketRepositoryType.GIT);
         result.add(new UserRemoteConfig(remote, getRemoteName(), "+refs/heads/" + head.getName(), getCheckoutEffectiveCredentials()));
         return result;
     }
 
     protected List<UserRemoteConfig> getGitRemoteConfigs(PullRequestSCMHead head) {
         List<UserRemoteConfig> result = new ArrayList<UserRemoteConfig>();
-        String remote = getRemote(head.getRepoOwner(), head.getRepository());
+        String remote = getRemote(head.getRepoOwner(), head.getRepository(), BitbucketRepositoryType.GIT);
         result.add(new UserRemoteConfig(remote, getRemoteName(), "+refs/heads/" + head.getBranchName(), getCheckoutEffectiveCredentials()));
         return result;
     }
@@ -550,11 +590,21 @@ public class BitbucketSCMSource extends SCMSource {
 
     @CheckForNull
     /* package */ StandardUsernamePasswordCredentials getScanCredentials() {
-        return getBitbucketConnector().lookupCredentials(getOwner(), credentialsId, StandardUsernamePasswordCredentials.class);
+        return BitbucketCredentials.lookupCredentials(
+                bitbucketServerUrl,
+                getOwner(),
+                credentialsId,
+                StandardUsernamePasswordCredentials.class
+        );
     }
 
     private StandardCredentials getCheckoutCredentials() {
-        return getBitbucketConnector().lookupCredentials(getOwner(), getCheckoutEffectiveCredentials(), StandardCredentials.class);
+        return BitbucketCredentials.lookupCredentials(
+                bitbucketServerUrl,
+                getOwner(),
+                getCheckoutEffectiveCredentials(),
+                StandardCredentials.class
+        );
     }
 
     public String getRemoteName() {
@@ -600,25 +650,6 @@ public class BitbucketSCMSource extends SCMSource {
         return quotedBranches.toString();
     }
 
-    private RepositoryUriResolver getUriResolver() {
-        try {
-            if (StringUtils.isBlank(checkoutCredentialsId)) {
-                return new HttpsRepositoryUriResolver(bitbucketServerUrl);
-            } else {
-                if (getCheckoutCredentials() instanceof SSHUserPrivateKey) {
-                    return new SshRepositoryUriResolver(bitbucketServerUrl, sshPort);
-                } else {
-                    // Defaults to HTTPS
-                    return new HttpsRepositoryUriResolver(bitbucketServerUrl);
-                }
-            }
-        } catch (MalformedURLException e) {
-            LOGGER.log(Level.SEVERE, "Bitbucket URL is not valid", e);
-            // The URL is validatd before, so this should never happen
-            throw new IllegalStateException(e);
-        }
-    }
-
     private String getCheckoutEffectiveCredentials() {
         if (DescriptorImpl.ANONYMOUS.equals(checkoutCredentialsId)) {
             return null;
@@ -636,11 +667,9 @@ public class BitbucketSCMSource extends SCMSource {
             throws IOException, InterruptedException {
         // TODO when we have support for trusted events, use the details from event if event was from trusted source
         List<Action> result = new ArrayList<>();
-        final BitbucketApi bitbucket = getBitbucketConnector().create(repoOwner, repository, getScanCredentials());
+        final BitbucketApi bitbucket = buildBitbucketClient();
         BitbucketRepository r = bitbucket.getRepository();
-        if (r != null) {
-            result.add(new BitbucketRepoMetadataAction(r));
-        }
+        result.add(new BitbucketRepoMetadataAction(r));
         String defaultBranch = bitbucket.getDefaultBranch();
         if (StringUtils.isNotBlank(defaultBranch)) {
             result.add(new BitbucketDefaultBranch(repoOwner, repository, defaultBranch));
@@ -649,11 +678,11 @@ public class BitbucketSCMSource extends SCMSource {
         if (StringUtils.isNotEmpty(bitbucketServerUrl)) {
             result.add(new BitbucketLink("icon-bitbucket-repo",
                     serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
-            result.add(new ObjectMetadataAction(r == null ? null : r.getFullName(), null,
+            result.add(new ObjectMetadataAction(r.getFullName(), null,
                     serverUrl + "/projects/" + repoOwner + "/repos/" + repository));
         } else {
             result.add(new BitbucketLink("icon-bitbucket-repo", serverUrl + "/" + repoOwner + "/" + repository));
-            result.add(new ObjectMetadataAction(r == null ? null : r.getFullName(), null,
+            result.add(new ObjectMetadataAction(r.getFullName(), null,
                     serverUrl + "/" + repoOwner + "/" + repository));
         }
         return result;
@@ -770,16 +799,14 @@ public class BitbucketSCMSource extends SCMSource {
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
             result.includeEmptyValue();
-            new BitbucketApiConnector(bitbucketServerUrl).fillCredentials(result, context);
-            return result;
+            return BitbucketCredentials.fillCredentials(bitbucketServerUrl, context, result);
         }
 
         public ListBoxModel doFillCheckoutCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
             result.add("- same as scan credentials -", SAME);
             result.add("- anonymous -", ANONYMOUS);
-            new BitbucketApiConnector(bitbucketServerUrl).fillCheckoutCredentials(result, context);
-            return result;
+            return BitbucketCredentials.fillCheckoutCredentials(bitbucketServerUrl, context, result);
         }
 
         @NonNull

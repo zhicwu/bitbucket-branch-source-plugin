@@ -24,9 +24,12 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
@@ -72,9 +75,9 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
             // then the temporary PR class will be resolved by HgMigrationImpl or GitMigrationImpl when the
             // context to look-up the correct target is (hopefully) available. If the context is not available
             // then worst case  we will end up triggering a rebuild on next index / event via take-over
-            return new PR(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000"));
+            return new PR(repoOwner, repoName, getName(), metadata.getId(), new BranchSCMHead("\u0000", null));
         }
-        return new BranchSCMHead(getName());
+        return new BranchSCMHead(getName(), null);
     }
 
     /**
@@ -103,12 +106,16 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         }
         Map<String, String> targets = new HashMap<>();
         try {
-            final BitbucketApi bitbucket = source.getBitbucketConnector()
-                    .create(source.getRepoOwner(), source.getRepository(), source.getScanCredentials());
+            final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(
+                    source.getBitbucketServerUrl(),
+                    source.getScanCredentials(),
+                    source.getRepoOwner(),
+                    source.getRepository()
+            );
             for (BitbucketPullRequest pr : bitbucket.getPullRequests()) {
                 targets.put(pr.getId(), pr.getDestination().getBranch().getName());
             }
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | IOException | InterruptedException e) {
             // log this at fine as we give the usage based detail later.
             LOGGER.log(Level.FINE, "Cannot resolve pull request targets", e);
         }
@@ -137,7 +144,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                 target = "\u0000";
             }
             return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target));
+                    new BranchSCMHead(target, BitbucketRepositoryType.MERCURIAL));
         }
 
         @Override
@@ -167,7 +174,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                 target = "\u0000";
             }
             return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target));
+                    new BranchSCMHead(target, BitbucketRepositoryType.GIT));
         }
 
         @Override

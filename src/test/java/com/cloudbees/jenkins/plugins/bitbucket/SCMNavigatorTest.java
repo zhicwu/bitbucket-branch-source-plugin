@@ -29,11 +29,13 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.ClassRule;
 import org.junit.Test;
 
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
@@ -44,15 +46,21 @@ import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceObserver;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceObserver.ProjectObserver;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
 
 public class SCMNavigatorTest {
 
+    @ClassRule
+    public static JenkinsRule j = new JenkinsRule();
+
     @Test
     public void teamRepositoriesDiscovering() throws IOException, InterruptedException {
+        BitbucketMockApiFactory.add("http://bitbucket.test",
+                BitbucketClientMockUtils.getAPIClientMock(BitbucketRepositoryType.GIT, true));
         BitbucketSCMNavigator navigator = new BitbucketSCMNavigator("myteam", null, null);
         navigator.setPattern("repo(.*)");
-        navigator.setBitbucketConnector(getConnectorMock(RepositoryType.GIT, true));
+        navigator.setBitbucketServerUrl("http://bitbucket.test");
         SCMSourceObserverImpl observer = new SCMSourceObserverImpl(BitbucketClientMockUtils.getTaskListenerMock(),
                 Mockito.mock(SCMSourceOwner.class));
         navigator.visitSources(observer);
@@ -144,14 +152,6 @@ public class SCMNavigatorTest {
                 return sources;
             }
         }
-    }
-
-    public static BitbucketApiConnector getConnectorMock(RepositoryType type, boolean includePullRequests) {
-        BitbucketApiConnector mockConnector = mock(BitbucketApiConnector.class);
-        BitbucketCloudApiClient mockedApi = BitbucketClientMockUtils.getAPIClientMock(type, includePullRequests);
-        when(mockConnector.create(anyString(), any(StandardUsernamePasswordCredentials.class))).thenReturn(mockedApi);
-        when(mockConnector.create(anyString(), anyString(), any(StandardUsernamePasswordCredentials.class))).thenReturn(mockedApi);
-        return mockConnector;
     }
 
 }
