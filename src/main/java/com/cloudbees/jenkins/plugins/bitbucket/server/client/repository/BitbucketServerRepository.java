@@ -23,11 +23,16 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.server.client.repository;
 
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
-
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryOwner;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.codehaus.jackson.annotate.JsonIgnore;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketServerRepository implements BitbucketRepository {
@@ -42,6 +47,12 @@ public class BitbucketServerRepository implements BitbucketRepository {
 
     // JSON mapping added in setter because the field can not be called "public"
     private Boolean publc;
+
+    @JsonProperty
+    private Map<String, List<BitbucketHref>> links;
+
+    public BitbucketServerRepository() {
+    }
 
     @Override
     public String getScm() {
@@ -80,6 +91,32 @@ public class BitbucketServerRepository implements BitbucketRepository {
     @JsonProperty("public")
     public void setPublic(Boolean publc) {
         this.publc = publc;
+    }
+
+    @JsonIgnore
+    public Map<String, BitbucketHref> getLinks() {
+        if (links == null) {
+            return null;
+        }
+        Map<String, BitbucketHref> result = new HashMap<>();
+        for (Map.Entry<String, List<BitbucketHref>> entry : this.links.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                result.put(entry.getKey(), entry.getValue().get(0));
+            }
+        }
+        return result;
+    }
+
+    @JsonIgnore
+    public void setLinks(Map<String, BitbucketHref> links) {
+        if (links == null) {
+            this.links = null;
+        } else {
+            this.links = new HashMap<>();
+            for (Map.Entry<String, BitbucketHref> entry : links.entrySet()) {
+                this.links.put(entry.getKey(), Collections.singletonList(entry.getValue()));
+            }
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

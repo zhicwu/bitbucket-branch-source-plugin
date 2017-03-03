@@ -36,13 +36,9 @@ import java.util.logging.Logger;
 /**
  * Abstract hook processor.
  * 
- * Add new hook processors by extending this class and implement {@link #process(String, BitbucketType)}, extract owner and repository
- * name from the hook payload and then call {@link #scmSourceReIndex(String, String)} to launch a branch/PR reindexing
- * on the mathing SCMSource.
- * 
- * TODO: Improvement - We could schedule a build only in the affected job instead of running a full reindex (since we
- *       have the branch contianing the commit in the hook payload). A full reindex would be forced only when the incoming 
- *       hook is resolved to a non-existent job (new branches or new PRs).
+ * Add new hook processors by extending this class and implement {@link #process(HookEventType, String, BitbucketType, String)},
+ * extract owner and repository name from the hook payload and then call {@link #scmSourceReIndex(String, String)}
+ * to launch a branch/PR reindexing on the matching SCMSource.
  */
 public abstract class HookProcessor {
 
@@ -51,11 +47,12 @@ public abstract class HookProcessor {
     /**
      * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html">Event Payloads</a> for more
      * information about the payload parameter format.
-     * 
+     * @param type
      * @param payload the hook payload
      * @param instanceType the Bitbucket type that called the hook
+     * @param origin the origin of the event.
      */
-    public abstract void process(String payload, BitbucketType instanceType);
+    public abstract void process(HookEventType type, String payload, BitbucketType instanceType, String origin);
 
     /**
      * To be called by implementations once the owner and the repository have been extracted from the payload.

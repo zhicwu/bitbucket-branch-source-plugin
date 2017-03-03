@@ -23,6 +23,8 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.client.repository;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
+import java.util.Map;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -44,6 +46,9 @@ public class BitbucketCloudRepository implements BitbucketRepository {
 
     // JSON mapping added in setter because the field can not be called "private"
     private Boolean priv;
+
+    @JsonProperty
+    private Map<String,BitbucketHref> links;
 
     @Override
     public String getScm() {
@@ -102,4 +107,12 @@ public class BitbucketCloudRepository implements BitbucketRepository {
         this.priv = priv;
     }
 
+    @Override
+    public Map<String, BitbucketHref> getLinks() {
+        return links;
+    }
+
+    public void setLinks(Map<String, BitbucketHref> links) {
+        this.links = links;
+    }
 }

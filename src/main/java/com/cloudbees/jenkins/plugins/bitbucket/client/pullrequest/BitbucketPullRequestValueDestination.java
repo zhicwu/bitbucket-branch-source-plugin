@@ -40,6 +40,7 @@ import org.codehaus.jackson.annotate.JsonProperty;
 public class BitbucketPullRequestValueDestination implements BitbucketPullRequestDestination {
     private BitbucketCloudRepository repository;
     private BitbucketCloudBranch branch;
+    private BitbucketCloudCommit commit;
 
     @Override
     @JsonProperty("repository")
@@ -63,4 +64,14 @@ public class BitbucketPullRequestValueDestination implements BitbucketPullReques
         this.branch = branch;
     }
 
+    @Override
+    @JsonProperty("commit")
+    public BitbucketCommit getCommit() {
+        return commit;
+    }
+
+    @JsonProperty("commit")
+    public void setCommit(BitbucketCloudCommit commit) {
+        this.commit = commit;
+    }
 }

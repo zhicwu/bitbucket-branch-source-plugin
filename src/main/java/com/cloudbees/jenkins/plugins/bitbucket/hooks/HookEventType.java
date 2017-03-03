@@ -44,7 +44,17 @@ public enum HookEventType {
     /**
      * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html#EventPayloads-Updated.1">EventPayloads-Updated</a>
      */
-    PULL_REQUEST_UPDATED("pullrequest:updated", PullRequestHookProcessor.class);
+    PULL_REQUEST_UPDATED("pullrequest:updated", PullRequestHookProcessor.class),
+
+    /**
+     * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html#EventPayloads-Merged">EventPayloads-Merged</a>
+     */
+    PULL_REQUEST_MERGED("pullrequest:fulfilled", PullRequestHookProcessor.class),
+
+    /**
+     * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html#EventPayloads-Declined">EventPayloads-Declined</a>
+     */
+    PULL_REQUEST_DECLINED("pullrequest:declined", PullRequestHookProcessor.class);
 
     private String key;
     private Class<?> clazz;

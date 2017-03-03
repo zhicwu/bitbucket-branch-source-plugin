@@ -310,6 +310,9 @@ public class BitbucketSCMSource extends SCMSource {
     protected void retrieve(@CheckForNull SCMSourceCriteria criteria, @NonNull SCMHeadObserver observer,
                             @CheckForNull SCMHeadEvent<?> event, @NonNull TaskListener listener)
             throws IOException, InterruptedException {
+        if (event != null) {
+            observer = event.filter(this, observer);
+        }
         StandardUsernamePasswordCredentials scanCredentials = getScanCredentials();
         if (scanCredentials == null) {
             listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketUrl());
@@ -334,8 +337,17 @@ public class BitbucketSCMSource extends SCMSource {
         if (bitbucket.isPrivate()) {
             List<? extends BitbucketPullRequest> pulls = bitbucket.getPullRequests();
             Set<String> livePRs = new HashSet<>();
+            Set<SCMHead> includes = observer.getIncludes();
             for (final BitbucketPullRequest pull : pulls) {
                 checkInterrupt();
+                PullRequestSCMHead head = new PullRequestSCMHead(pull.getSource().getRepository().getOwnerName(),
+                        pull.getSource().getRepository().getRepositoryName(), repositoryType,
+                        pull.getSource().getBranch().getName(), pull);
+                if (includes != null && !includes.contains(head)) {
+                    continue;
+                }
+
+
                 listener.getLogger().println(
                         "Checking PR from " + pull.getSource().getRepository().getFullName() + " and branch "
                                 + pull.getSource().getBranch().getName());
@@ -369,7 +381,7 @@ public class BitbucketSCMSource extends SCMSource {
                         pull.getSource().getRepository().getRepositoryName(),
                         pull.getSource().getBranch().getName(),
                         hash,
-                        pull);
+                        head);
                 if (!observer.isObserving()) {
                     return;
                 }
@@ -389,23 +401,31 @@ public class BitbucketSCMSource extends SCMSource {
 
         final BitbucketApi bitbucket = buildBitbucketClient();
         List<? extends BitbucketBranch> branches = bitbucket.getBranches();
+        Set<SCMHead> includes = observer.getIncludes();
         for (BitbucketBranch branch : branches) {
             checkInterrupt();
+            BranchSCMHead head = new BranchSCMHead(branch.getName(), repositoryType);
+            if (includes != null && !includes.contains(head)) {
+                continue;
+            }
             listener.getLogger().println("Checking branch " + branch.getName() + " from " + fullName);
             observe(criteria, observer, listener, repoOwner, repository, branch.getName(),
-                    branch.getRawNode(), null);
+                    branch.getRawNode(), head);
+            if (!observer.isObserving()) {
+                return;
+            }
         }
     }
 
     private void observe(SCMSourceCriteria criteria, SCMHeadObserver observer, final TaskListener listener,
                          final String owner, final String repositoryName,
-                         final String branchName, final String hash, BitbucketPullRequest pr) throws IOException, InterruptedException {
+                         final String branchName, final String hash, SCMHead head) throws IOException, InterruptedException {
         if (isExcluded(branchName)) {
             return;
         }
         final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(bitbucketServerUrl, getScanCredentials(), owner, repositoryName);
-        SCMSourceCriteria branchCriteria = criteria;
-        if (branchCriteria != null) {
+
+        if (criteria != null) {
             SCMSourceCriteria.Probe probe = new SCMSourceCriteria.Probe() {
 
                 @Override
@@ -440,7 +460,7 @@ public class BitbucketSCMSource extends SCMSource {
                     }
                 }
             };
-            if (branchCriteria.isHead(probe, listener)) {
+            if (criteria.isHead(probe, listener)) {
                 listener.getLogger().println("Met criteria");
             } else {
                 listener.getLogger().println("Does not meet criteria");
@@ -449,9 +469,6 @@ public class BitbucketSCMSource extends SCMSource {
         }
         BitbucketRepositoryType repositoryType = getRepositoryType();
         SCMRevision revision;
-        SCMHead head = pr != null
-                ? new PullRequestSCMHead(owner, repositoryName, repositoryType, branchName, pr)
-                : new BranchSCMHead(branchName, repositoryType);
         if (repositoryType == BitbucketRepositoryType.MERCURIAL) {
             revision = new MercurialRevision(head, hash);
         } else {
