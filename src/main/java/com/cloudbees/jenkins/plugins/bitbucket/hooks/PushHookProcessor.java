@@ -58,7 +58,7 @@ public class PushHookProcessor extends HookProcessor {
     private static final Logger LOGGER = Logger.getLogger(PushHookProcessor.class.getName());
 
     @Override
-    public void process(HookEventType type, String payload, BitbucketType instanceType, String origin) {
+    public void process(HookEventType hookEvent, String payload, BitbucketType instanceType, String origin) {
         if (payload != null) {
             BitbucketPushEvent push;
             if (instanceType == BitbucketType.SERVER) {
