@@ -26,8 +26,14 @@ package com.cloudbees.jenkins.plugins.bitbucket.server.events;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.BitbucketServerWebhookPayload;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
+import java.io.IOException;
+import java.io.InputStream;
+import org.apache.commons.io.IOUtils;
 import org.codehaus.jackson.map.ObjectMapper;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.is;
@@ -35,36 +41,23 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 public class BitbucketServerPullRequestEventTest {
+    @Rule
+    public final TestName testName = new TestName();
+
+    private String payload;
+
+    @Before
+    public void loadPayload() throws IOException {
+        try (InputStream is = getClass()
+                .getResourceAsStream(getClass().getSimpleName() + "/" + testName.getMethodName() + ".json")) {
+            payload = IOUtils.toString(is, "UTF-8");
+        }
+    }
+
     @Test
     public void updatePayload() throws Exception {
         BitbucketPullRequestEvent event =
-                BitbucketServerWebhookPayload.pullRequestEventFromPayload("{\"actor\":{\"username\":\"user\","
-                        + "\"displayName\":\"User\"},\"pullrequest\":{\"id\":\"1\",\"title\":\"Markdown formatting\","
-                        + "\"link\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/pull-requests/1\","
-                        + "\"authorLogin\":\"User\",\"fromRef\":{\"repository\":{\"scmId\":\"git\","
-                        + "\"project\":{\"key\":\"~USER\",\"name\":\"User\"},\"slug\":\"rep_1\","
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/~USER/repos/rep_1/browse\"}]},\"public\":false,"
-                        + "\"owner\":{\"username\":\"~USER\",\"displayName\":\"~USER\"},\"fullName\":\"~USER/rep_1\","
-                        + "\"ownerName\":\"~USER\"},\"commit\":{\"message\":null,\"date\":null,"
-                        + "\"hash\":\"feb8d676cd70406cecd4128c8fd1bee30282db11\",\"authorTimestamp\":0},"
-                        + "\"branch\":{\"name\":\"master\","
-                        + "\"rawNode\":\"feb8d676cd70406cecd4128c8fd1bee30282db11\"}},"
-                        + "\"toRef\":{\"repository\":{\"scmId\":\"git\",\"project\":{\"key\":\"PROJECT_1\","
-                        + "\"name\":\"Project 1\"},\"slug\":\"rep_1\",\"links\":{\"self\":[{\"href\":\"http://local"
-                        + ".example.com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/browse\"}]},\"public\":false,"
-                        + "\"owner\":{\"username\":\"PROJECT_1\",\"displayName\":\"PROJECT_1\"},"
-                        + "\"fullName\":\"PROJECT_1/rep_1\",\"ownerName\":\"PROJECT_1\"},"
-                        + "\"commit\":{\"message\":null,\"date\":null,"
-                        + "\"hash\":\"d235f0c0aa22f4c75b2fb63b217e39e2d3c29f49\",\"authorTimestamp\":0},"
-                        + "\"branch\":{\"name\":\"master\","
-                        + "\"rawNode\":\"d235f0c0aa22f4c75b2fb63b217e39e2d3c29f49\"}}},"
-                        + "\"repository\":{\"scmId\":\"git\",\"project\":{\"key\":\"PROJECT_1\",\"name\":\"Project "
-                        + "1\"},\"slug\":\"rep_1\",\"links\":{\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/browse\"}]},\"public\":false,"
-                        + "\"owner\":{\"username\":\"PROJECT_1\",\"displayName\":\"PROJECT_1\"},"
-                        + "\"fullName\":\"PROJECT_1/rep_1\",\"ownerName\":\"PROJECT_1\"}}");
+                BitbucketServerWebhookPayload.pullRequestEventFromPayload(payload);
         assertThat(event.getRepository(), notNullValue());
         assertThat(event.getRepository().getScm(), is("git"));
         assertThat(event.getRepository().getFullName(), is("PROJECT_1/rep_1"));
@@ -128,53 +121,7 @@ public class BitbucketServerPullRequestEventTest {
     @Test
     public void apiResponse() throws Exception {
         BitbucketServerPullRequest pullRequest =
-                new ObjectMapper().readValue("\n"
-                        + "{\"id\":1,\"version\":1,\"title\":\"Markdown formatting\",\"description\":\"my pr\","
-                        + "\"state\":\"OPEN\",\"open\":true,\"closed\":false,\"createdDate\":1488549656836,"
-                        + "\"updatedDate\":1488550788045,\"fromRef\":{\"id\":\"refs/heads/master\","
-                        + "\"displayId\":\"master\",\"latestCommit\":\"feb8d676cd70406cecd4128c8fd1bee30282db11\","
-                        + "\"repository\":{\"slug\":\"rep_1\",\"id\":12,\"name\":\"rep_1\",\"scmId\":\"git\","
-                        + "\"state\":\"AVAILABLE\",\"statusMessage\":\"Available\",\"forkable\":true,"
-                        + "\"origin\":{\"slug\":\"rep_1\",\"id\":1,\"name\":\"rep_1\",\"scmId\":\"git\","
-                        + "\"state\":\"AVAILABLE\",\"statusMessage\":\"Available\",\"forkable\":true,"
-                        + "\"project\":{\"key\":\"PROJECT_1\",\"id\":1,\"name\":\"Project 1\","
-                        + "\"description\":\"Default configuration project #1\",\"public\":false,\"type\":\"NORMAL\","
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1\"}]}},\"public\":false,"
-                        + "\"links\":{\"clone\":[{\"href\":\"http://admin@local.example"
-                        + ".com:7990/bitbucket/scm/project_1/rep_1.git\",\"name\":\"http\"},"
-                        + "{\"href\":\"ssh://git@local.example.com:7999/project_1/rep_1.git\",\"name\":\"ssh\"}],"
-                        + "\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/browse\"}]}},"
-                        + "\"project\":{\"key\":\"~USER\",\"id\":22,\"name\":\"User\",\"type\":\"PERSONAL\","
-                        + "\"owner\":{\"name\":\"user\",\"emailAddress\":\"user@example.com\",\"id\":2,"
-                        + "\"displayName\":\"User\",\"active\":true,\"slug\":\"user\",\"type\":\"NORMAL\","
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example.com:7990/bitbucket/users/user\"}]}},"
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example.com:7990/bitbucket/users/user\"}]}},"
-                        + "\"public\":false,\"links\":{\"clone\":[{\"href\":\"ssh://git@local.example"
-                        + ".com:7999/~user/rep_1.git\",\"name\":\"ssh\"},{\"href\":\"http://admin@local.example"
-                        + ".com:7990/bitbucket/scm/~user/rep_1.git\",\"name\":\"http\"}],"
-                        + "\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/users/user/repos/rep_1/browse\"}]}}},"
-                        + "\"toRef\":{\"id\":\"refs/heads/master\",\"displayId\":\"master\","
-                        + "\"latestCommit\":\"d235f0c0aa22f4c75b2fb63b217e39e2d3c29f49\","
-                        + "\"repository\":{\"slug\":\"rep_1\",\"id\":1,\"name\":\"rep_1\",\"scmId\":\"git\","
-                        + "\"state\":\"AVAILABLE\",\"statusMessage\":\"Available\",\"forkable\":true,"
-                        + "\"project\":{\"key\":\"PROJECT_1\",\"id\":1,\"name\":\"Project 1\","
-                        + "\"description\":\"Default configuration project #1\",\"public\":false,\"type\":\"NORMAL\","
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1\"}]}},\"public\":false,"
-                        + "\"links\":{\"clone\":[{\"href\":\"http://admin@local.example"
-                        + ".com:7990/bitbucket/scm/project_1/rep_1.git\",\"name\":\"http\"},"
-                        + "{\"href\":\"ssh://git@local.example.com:7999/project_1/rep_1.git\",\"name\":\"ssh\"}],"
-                        + "\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/browse\"}]}}},\"locked\":false,"
-                        + "\"author\":{\"user\":{\"name\":\"user\",\"emailAddress\":\"user@example.com\",\"id\":2,"
-                        + "\"displayName\":\"User\",\"active\":true,\"slug\":\"user\",\"type\":\"NORMAL\","
-                        + "\"links\":{\"self\":[{\"href\":\"http://local.example.com:7990/bitbucket/users/user\"}]}},"
-                        + "\"role\":\"AUTHOR\",\"approved\":false,\"status\":\"UNAPPROVED\"},\"reviewers\":[],"
-                        + "\"participants\":[],\"links\":{\"self\":[{\"href\":\"http://local.example"
-                        + ".com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/pull-requests/1\"}]}}", BitbucketServerPullRequest.class);
+                new ObjectMapper().readValue(payload, BitbucketServerPullRequest.class);
         assertThat(pullRequest, notNullValue());
         assertThat(pullRequest.getTitle(), is("Markdown formatting"));
         assertThat(pullRequest.getAuthorLogin(), is("User"));

@@ -25,226 +25,64 @@ package com.cloudbees.jenkins.plugins.bitbucket.client.events;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPushEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudWebhookPayload;
+import java.io.IOException;
+import java.io.InputStream;
+import org.apache.commons.io.IOUtils;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class BitbucketCloudPushEventTest {
+    @Rule
+    public final TestName testName = new TestName();
+
+    private String payload;
+
+    @Before
+    public void loadPayload() throws IOException {
+        try (InputStream is = getClass().getResourceAsStream(getClass().getSimpleName() + "/" + testName.getMethodName() + ".json")) {
+            payload = IOUtils.toString(is, "UTF-8");
+        }
+    }
+
     @Test
     public void createPayload() throws Exception {
-        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(
-                "{\n"
-                        + "  \"push\": {\n"
-                        + "    \"changes\": [\n"
-                        + "      {\n"
-                        + "        \"forced\": false,\n"
-                        + "        \"old\": null,\n"
-                        + "        \"links\": {\n"
-                        + "          \"commits\": {\n"
-                        + "            \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commits?include=501bf5b99365d1d870882254b9360c17172bda0e\"\n"
+        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
+        assertThat(event.getRepository(), notNullValue());
+        assertThat(event.getRepository().getScm(), is("git"));
+        assertThat(event.getRepository().getFullName(), is("cloudbeers/temp"));
+        assertThat(event.getRepository().getOwner().getDisplayName(), is("cloudbeers"));
+        assertThat(event.getRepository().getOwner().getUsername(), is("cloudbeers"));
+        assertThat(event.getRepository().getRepositoryName(), is("temp"));
+        assertThat(event.getRepository().isPrivate(), is(true));
+        assertThat(event.getRepository().getLinks(), notNullValue());
+        assertThat(event.getRepository().getLinks().get("self"), notNullValue());
+        assertThat(event.getRepository().getLinks().get("self").getHref(),
+                is("https://api.bitbucket.org/2.0/repositories/cloudbeers/temp"));
+        assertThat(event.getChanges(), not(containsInAnyOrder()));
+        assertThat(event.getChanges().size(), is(1));
+        BitbucketPushEvent.Change change = event.getChanges().get(0);
+        assertThat(change.getOld(), nullValue());
+        assertThat(change.isCreated(), is(true));
+        assertThat(change.isClosed(), is(false));
+        assertThat(change.getNew(), notNullValue());
+        assertThat(change.getNew().getName(), is("master"));
+        assertThat(change.getNew().getType(), is("branch"));
+        assertThat(change.getNew().getTarget(), notNullValue());
+        assertThat(change.getNew().getTarget().getHash(), is("501bf5b99365d1d870882254b9360c17172bda0e"));
+    }
 
-                        + "          },\n"
-                        + "          \"html\": {\n"
-                        + "            \"href\": \"https://bitbucket.org/cloudbeers/temp/branch/master\"\n"
-                        + "          }\n"
-                        + "        },\n"
-                        + "        \"created\": true,\n"
-                        + "        \"commits\": [\n"
-                        + "          {\n"
-                        + "            \"hash\": \"501bf5b99365d1d870882254b9360c17172bda0e\",\n"
-                        + "            \"links\": {\n"
-                        + "              \"self\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"comments\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e"
-                        + "/comments\"\n"
-                        + "              },\n"
-                        + "              \"patch\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/patch/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"html\": {\n"
-                        + "                \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"diff\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/diff/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"approve\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e/approve\"\n"
-                        + "              },\n"
-                        + "              \"statuses\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e/statuses\"\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"author\": {\n"
-                        + "              \"raw\": \"Stephen Connolly <stephen.alan.connolly@gmail.com>\",\n"
-                        + "              \"user\": {\n"
-                        + "                \"username\": \"stephenc\",\n"
-                        + "                \"display_name\": \"Stephen Connolly\",\n"
-                        + "                \"type\": \"user\",\n"
-                        + "                \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "                  },\n"
-                        + "                  \"avatar\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"parents\": [],\n"
-                        + "            \"date\": \"2017-03-03T17:10:55+00:00\",\n"
-                        + "            \"message\": \"README.md created online with Bitbucket\",\n"
-                        + "            \"type\": \"commit\"\n"
-                        + "          }\n"
-                        + "        ],\n"
-                        + "        \"truncated\": false,\n"
-                        + "        \"closed\": false,\n"
-                        + "        \"new\": {\n"
-                        + "          \"type\": \"branch\",\n"
-                        + "          \"target\": {\n"
-                        + "            \"hash\": \"501bf5b99365d1d870882254b9360c17172bda0e\",\n"
-                        + "            \"links\": {\n"
-                        + "              \"self\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"html\": {\n"
-                        + "                \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"author\": {\n"
-                        + "              \"raw\": \"Stephen Connolly <stephen.alan.connolly@gmail.com>\",\n"
-                        + "              \"user\": {\n"
-                        + "                \"username\": \"stephenc\",\n"
-                        + "                \"display_name\": \"Stephen Connolly\",\n"
-                        + "                \"type\": \"user\",\n"
-                        + "                \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "                  },\n"
-                        + "                  \"avatar\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"parents\": [],\n"
-                        + "            \"date\": \"2017-03-03T17:10:55+00:00\",\n"
-                        + "            \"message\": \"README.md created online with Bitbucket\",\n"
-                        + "            \"type\": \"commit\"\n"
-                        + "          },\n"
-                        + "          \"links\": {\n"
-                        + "            \"commits\": {\n"
-                        + "              \"href\": \"https://api.bitbucket.org/2.0/repositories/cloudbeers/temp/commits/master\"\n"
-                        + "            },\n"
-                        + "            \"self\": {\n"
-                        + "              \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/refs/branches/master\"\n"
-                        + "            },\n"
-                        + "            \"html\": {\n"
-                        + "              \"href\": \"https://bitbucket.org/cloudbeers/temp/branch/master\"\n"
-                        + "            }\n"
-                        + "          },\n"
-                        + "          \"name\": \"master\"\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    ]\n"
-                        + "  },\n"
-                        + "  \"actor\": {\n"
-                        + "    \"username\": \"stephenc\",\n"
-                        + "    \"display_name\": \"Stephen Connolly\",\n"
-                        + "    \"type\": \"user\",\n"
-                        + "    \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "    \"links\": {\n"
-                        + "      \"self\": {\n"
-                        + "        \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "      },\n"
-                        + "      \"html\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "      },\n"
-                        + "      \"avatar\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  \"repository\": {\n"
-                        + "    \"website\": \"\",\n"
-                        + "    \"scm\": \"git\",\n"
-                        + "    \"uuid\": \"{708c9715-0ecc-4a5d-87ed-63c4ba48ea06}\",\n"
-                        + "    \"links\": {\n"
-                        + "      \"self\": {\n"
-                        + "        \"href\": \"https://api.bitbucket.org/2.0/repositories/cloudbeers/temp\"\n"
-                        + "      },\n"
-                        + "      \"html\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/cloudbeers/temp\"\n"
-                        + "      },\n"
-                        + "      \"avatar\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/cloudbeers/temp/avatar/32/\"\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"project\": {\n"
-                        + "      \"links\": {\n"
-                        + "        \"self\": {\n"
-                        + "          \"href\": \"https://api.bitbucket.org/2.0/teams/cloudbeers/projects/DUB\"\n"
-                        + "        },\n"
-                        + "        \"html\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/account/user/cloudbeers/projects/DUB\"\n"
-                        + "        },\n"
-                        + "        \"avatar\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/account/user/cloudbeers/projects/DUB/avatar/32"
-                        + "\"\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      \"type\": \"project\",\n"
-                        + "      \"uuid\": \"{7f08415d-57d0-4172-8978-059345fa0369}\",\n"
-                        + "      \"key\": \"DUB\",\n"
-                        + "      \"name\": \"dublin\"\n"
-                        + "    },\n"
-                        + "    \"full_name\": \"cloudbeers/temp\",\n"
-                        + "    \"owner\": {\n"
-                        + "      \"username\": \"cloudbeers\",\n"
-                        + "      \"display_name\": \"cloudbeers\",\n"
-                        + "      \"type\": \"team\",\n"
-                        + "      \"uuid\": \"{5e429024-1f85-425f-8955-8af0c35d1b41}\",\n"
-                        + "      \"links\": {\n"
-                        + "        \"self\": {\n"
-                        + "          \"href\": \"https://api.bitbucket.org/2.0/teams/cloudbeers\"\n"
-                        + "        },\n"
-                        + "        \"html\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/cloudbeers/\"\n"
-                        + "        },\n"
-                        + "        \"avatar\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/account/cloudbeers/avatar/32/\"\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"type\": \"repository\",\n"
-                        + "    \"is_private\": true,\n"
-                        + "    \"name\": \"temp\"\n"
-                        + "  }\n"
-                        + "}");
+    @Test
+    public void updatePayload() throws Exception {
+        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
         assertThat(event.getRepository(), notNullValue());
         assertThat(event.getRepository().getScm(), is("git"));
         assertThat(event.getRepository().getFullName(), is("cloudbeers/temp"));
@@ -260,309 +98,24 @@ public class BitbucketCloudPushEventTest {
     }
 
     @Test
-    public void updatePayload() throws Exception {
-        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(
-                "{\n"
-                        + "  \"push\": {\n"
-                        + "    \"changes\": [\n"
-                        + "      {\n"
-                        + "        \"forced\": false,\n"
-                        + "        \"old\": {\n"
-                        + "          \"type\": \"branch\",\n"
-                        + "          \"name\": \"master\",\n"
-                        + "          \"links\": {\n"
-                        + "            \"commits\": {\n"
-                        + "              \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commits/master\"\n"
-                        + "            },\n"
-                        + "            \"self\": {\n"
-                        + "              \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/refs/branches/master\"\n"
-                        + "            },\n"
-                        + "            \"html\": {\n"
-                        + "              \"href\": \"https://bitbucket.org/cloudbeers/temp/branch/master\"\n"
-                        + "            }\n"
-                        + "          },\n"
-                        + "          \"target\": {\n"
-                        + "            \"hash\": \"501bf5b99365d1d870882254b9360c17172bda0e\",\n"
-                        + "            \"links\": {\n"
-                        + "              \"self\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              },\n"
-                        + "              \"html\": {\n"
-                        + "                \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"author\": {\n"
-                        + "              \"raw\": \"Stephen Connolly <stephen.alan.connolly@gmail.com>\",\n"
-                        + "              \"user\": {\n"
-                        + "                \"username\": \"stephenc\",\n"
-                        + "                \"display_name\": \"Stephen Connolly\",\n"
-                        + "                \"type\": \"user\",\n"
-                        + "                \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "                  },\n"
-                        + "                  \"avatar\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"parents\": [],\n"
-                        + "            \"date\": \"2017-03-03T17:10:55+00:00\",\n"
-                        + "            \"message\": \"README.md created online with Bitbucket\",\n"
-                        + "            \"type\": \"commit\"\n"
-                        + "          }\n"
-                        + "        },\n"
-                        + "        \"links\": {\n"
-                        + "          \"diff\": {\n"
-                        + "            \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/diff"
-                        + "/e42fac24456e4a56f1b7f9358afc3070e3b7ddec..501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "          },\n"
-                        + "          \"html\": {\n"
-                        + "            \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/branches/compare/e42fac24456e4a56f1b7f9358afc3070e3b7ddec..501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "          },\n"
-                        + "          \"commits\": {\n"
-                        + "            \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commits?include"
-                        + "=e42fac24456e4a56f1b7f9358afc3070e3b7ddec&exclude=501bf5b99365d1d870882254b9360c17172bda0e"
-                        + "\"\n"
-                        + "          }\n"
-                        + "        },\n"
-                        + "        \"created\": false,\n"
-                        + "        \"commits\": [\n"
-                        + "          {\n"
-                        + "            \"hash\": \"e42fac24456e4a56f1b7f9358afc3070e3b7ddec\",\n"
-                        + "            \"links\": {\n"
-                        + "              \"self\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              },\n"
-                        + "              \"comments\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/e42fac24456e4a56f1b7f9358afc3070e3b7ddec"
-                        + "/comments\"\n"
-                        + "              },\n"
-                        + "              \"patch\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/patch/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              },\n"
-                        + "              \"html\": {\n"
-                        + "                \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              },\n"
-                        + "              \"diff\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/diff/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              },\n"
-                        + "              \"approve\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/e42fac24456e4a56f1b7f9358afc3070e3b7ddec"
-                        + "/approve\"\n"
-                        + "              },\n"
-                        + "              \"statuses\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/e42fac24456e4a56f1b7f9358afc3070e3b7ddec"
-                        + "/statuses\"\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"author\": {\n"
-                        + "              \"raw\": \"Stephen Connolly <stephen.alan.connolly@gmail.com>\",\n"
-                        + "              \"user\": {\n"
-                        + "                \"username\": \"stephenc\",\n"
-                        + "                \"display_name\": \"Stephen Connolly\",\n"
-                        + "                \"type\": \"user\",\n"
-                        + "                \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "                  },\n"
-                        + "                  \"avatar\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"parents\": [\n"
-                        + "              {\n"
-                        + "                \"hash\": \"501bf5b99365d1d870882254b9360c17172bda0e\",\n"
-                        + "                \"type\": \"commit\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            ],\n"
-                        + "            \"date\": \"2017-03-03T17:14:49+00:00\",\n"
-                        + "            \"message\": \"Jenkinsfile created online with Bitbucket\",\n"
-                        + "            \"type\": \"commit\"\n"
-                        + "          }\n"
-                        + "        ],\n"
-                        + "        \"truncated\": false,\n"
-                        + "        \"closed\": false,\n"
-                        + "        \"new\": {\n"
-                        + "          \"type\": \"branch\",\n"
-                        + "          \"name\": \"master\",\n"
-                        + "          \"links\": {\n"
-                        + "            \"commits\": {\n"
-                        + "              \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commits/master\"\n"
-                        + "            },\n"
-                        + "            \"self\": {\n"
-                        + "              \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/refs/branches/master\"\n"
-                        + "            },\n"
-                        + "            \"html\": {\n"
-                        + "              \"href\": \"https://bitbucket.org/cloudbeers/temp/branch/master\"\n"
-                        + "            }\n"
-                        + "          },\n"
-                        + "          \"target\": {\n"
-                        + "            \"hash\": \"e42fac24456e4a56f1b7f9358afc3070e3b7ddec\",\n"
-                        + "            \"links\": {\n"
-                        + "              \"self\": {\n"
-                        + "                \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              },\n"
-                        + "              \"html\": {\n"
-                        + "                \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/e42fac24456e4a56f1b7f9358afc3070e3b7ddec\"\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"author\": {\n"
-                        + "              \"raw\": \"Stephen Connolly <stephen.alan.connolly@gmail.com>\",\n"
-                        + "              \"user\": {\n"
-                        + "                \"username\": \"stephenc\",\n"
-                        + "                \"display_name\": \"Stephen Connolly\",\n"
-                        + "                \"type\": \"user\",\n"
-                        + "                \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "                  },\n"
-                        + "                  \"avatar\": {\n"
-                        + "                    \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            },\n"
-                        + "            \"parents\": [\n"
-                        + "              {\n"
-                        + "                \"hash\": \"501bf5b99365d1d870882254b9360c17172bda0e\",\n"
-                        + "                \"type\": \"commit\",\n"
-                        + "                \"links\": {\n"
-                        + "                  \"self\": {\n"
-                        + "                    \"href\": \"https://api.bitbucket"
-                        + ".org/2.0/repositories/cloudbeers/temp/commit/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "                  },\n"
-                        + "                  \"html\": {\n"
-                        + "                    \"href\": \"https://bitbucket"
-                        + ".org/cloudbeers/temp/commits/501bf5b99365d1d870882254b9360c17172bda0e\"\n"
-                        + "                  }\n"
-                        + "                }\n"
-                        + "              }\n"
-                        + "            ],\n"
-                        + "            \"date\": \"2017-03-03T17:14:49+00:00\",\n"
-                        + "            \"message\": \"Jenkinsfile created online with Bitbucket\",\n"
-                        + "            \"type\": \"commit\"\n"
-                        + "          }\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    ]\n"
-                        + "  },\n"
-                        + "  \"actor\": {\n"
-                        + "    \"username\": \"stephenc\",\n"
-                        + "    \"display_name\": \"Stephen Connolly\",\n"
-                        + "    \"type\": \"user\",\n"
-                        + "    \"uuid\": \"{f70f195e-ade1-4961-9f89-547541377b80}\",\n"
-                        + "    \"links\": {\n"
-                        + "      \"self\": {\n"
-                        + "        \"href\": \"https://api.bitbucket.org/2.0/users/stephenc\"\n"
-                        + "      },\n"
-                        + "      \"html\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/stephenc/\"\n"
-                        + "      },\n"
-                        + "      \"avatar\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/account/stephenc/avatar/32/\"\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  \"repository\": {\n"
-                        + "    \"website\": \"\",\n"
-                        + "    \"scm\": \"git\",\n"
-                        + "    \"name\": \"temp\",\n"
-                        + "    \"links\": {\n"
-                        + "      \"self\": {\n"
-                        + "        \"href\": \"https://api.bitbucket.org/2.0/repositories/cloudbeers/temp\"\n"
-                        + "      },\n"
-                        + "      \"html\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/cloudbeers/temp\"\n"
-                        + "      },\n"
-                        + "      \"avatar\": {\n"
-                        + "        \"href\": \"https://bitbucket.org/cloudbeers/temp/avatar/32/\"\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"project\": {\n"
-                        + "      \"key\": \"DUB\",\n"
-                        + "      \"type\": \"project\",\n"
-                        + "      \"uuid\": \"{7f08415d-57d0-4172-8978-059345fa0369}\",\n"
-                        + "      \"links\": {\n"
-                        + "        \"self\": {\n"
-                        + "          \"href\": \"https://api.bitbucket.org/2.0/teams/cloudbeers/projects/DUB\"\n"
-                        + "        },\n"
-                        + "        \"html\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/account/user/cloudbeers/projects/DUB\"\n"
-                        + "        },\n"
-                        + "        \"avatar\": {\n"
-                        + "          \"href\": \"https://bitbucket"
-                        + ".org/account/user/cloudbeers/projects/DUB/avatar/32\"\n"
-                        + "        }\n"
-                        + "      },\n"
-                        + "      \"name\": \"dublin\"\n"
-                        + "    },\n"
-                        + "    \"full_name\": \"cloudbeers/temp\",\n"
-                        + "    \"owner\": {\n"
-                        + "      \"username\": \"cloudbeers\",\n"
-                        + "      \"display_name\": \"cloudbeers\",\n"
-                        + "      \"type\": \"team\",\n"
-                        + "      \"uuid\": \"{5e429024-1f85-425f-8955-8af0c35d1b41}\",\n"
-                        + "      \"links\": {\n"
-                        + "        \"self\": {\n"
-                        + "          \"href\": \"https://api.bitbucket.org/2.0/teams/cloudbeers\"\n"
-                        + "        },\n"
-                        + "        \"html\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/cloudbeers/\"\n"
-                        + "        },\n"
-                        + "        \"avatar\": {\n"
-                        + "          \"href\": \"https://bitbucket.org/account/cloudbeers/avatar/32/\"\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    },\n"
-                        + "    \"type\": \"repository\",\n"
-                        + "    \"is_private\": true,\n"
-                        + "    \"uuid\": \"{708c9715-0ecc-4a5d-87ed-63c4ba48ea06}\"\n"
-                        + "  }\n"
-                        + "}");
+    public void emptyPayload() throws Exception {
+        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
+        assertThat(event.getRepository(), notNullValue());
+        assertThat(event.getRepository().getScm(), is("git"));
+        assertThat(event.getRepository().getFullName(), is("cloudbeers/temp"));
+        assertThat(event.getRepository().getOwner().getDisplayName(), is("cloudbeers"));
+        assertThat(event.getRepository().getOwner().getUsername(), is("cloudbeers"));
+        assertThat(event.getRepository().getRepositoryName(), is("temp"));
+        assertThat(event.getRepository().isPrivate(), is(true));
+        assertThat(event.getRepository().getLinks(), notNullValue());
+        assertThat(event.getRepository().getLinks().get("self"), notNullValue());
+        assertThat(event.getRepository().getLinks().get("self").getHref(),
+                is("https://api.bitbucket.org/2.0/repositories/cloudbeers/temp"));
+        assertThat(event.getChanges(), containsInAnyOrder());
+    }
+    @Test
+    public void multipleChangesPayload() throws Exception {
+        BitbucketPushEvent event = BitbucketCloudWebhookPayload.pushEventFromPayload(payload);
         assertThat(event.getRepository(), notNullValue());
         assertThat(event.getRepository().getScm(), is("git"));
         assertThat(event.getRepository().getFullName(), is("cloudbeers/temp"));
@@ -575,5 +128,37 @@ public class BitbucketCloudPushEventTest {
         assertThat(event.getRepository().getLinks().get("self").getHref(),
                 is("https://api.bitbucket.org/2.0/repositories/cloudbeers/temp"));
         assertThat(event.getChanges(), not(containsInAnyOrder()));
+        assertThat(event.getChanges().size(), is(3));
+        BitbucketPushEvent.Change change = event.getChanges().get(0);
+        assertThat(change.getOld(), notNullValue());
+        assertThat(change.getOld().getName(), is("master"));
+        assertThat(change.getOld().getType(), is("branch"));
+        assertThat(change.getOld().getTarget(), notNullValue());
+        assertThat(change.getOld().getTarget().getHash(), is("fc4d1ce2853b6f1ac0d0dbad643d17ef4a6e0be7"));
+        assertThat(change.isCreated(), is(false));
+        assertThat(change.isClosed(), is(false));
+        assertThat(change.getNew(), notNullValue());
+        assertThat(change.getNew().getName(), is("master"));
+        assertThat(change.getNew().getType(), is("branch"));
+        assertThat(change.getNew().getTarget(), notNullValue());
+        assertThat(change.getNew().getTarget().getHash(), is("325d37697849f4b1fe42cb19c20134af08e03a82"));
+        change = event.getChanges().get(1);
+        assertThat(change.getOld(), nullValue());
+        assertThat(change.isCreated(), is(true));
+        assertThat(change.isClosed(), is(false));
+        assertThat(change.getNew(), notNullValue());
+        assertThat(change.getNew().getName(), is("manchu"));
+        assertThat(change.getNew().getType(), is("branch"));
+        assertThat(change.getNew().getTarget(), notNullValue());
+        assertThat(change.getNew().getTarget().getHash(), is("e22fcb49645b4586a845938afac5eb3ac1950586"));
+        change = event.getChanges().get(2);
+        assertThat(change.getOld(), nullValue());
+        assertThat(change.isCreated(), is(true));
+        assertThat(change.isClosed(), is(false));
+        assertThat(change.getNew(), notNullValue());
+        assertThat(change.getNew().getName(), is("v0.1"));
+        assertThat(change.getNew().getType(), is("tag"));
+        assertThat(change.getNew().getTarget(), notNullValue());
+        assertThat(change.getNew().getTarget().getHash(), is("1986c228494671574242f99b62d1a00a4bfb69a5"));
     }
 }
