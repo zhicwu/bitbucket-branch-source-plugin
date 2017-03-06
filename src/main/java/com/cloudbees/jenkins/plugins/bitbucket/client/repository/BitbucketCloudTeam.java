@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016-2017, CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,10 +25,12 @@ package com.cloudbees.jenkins.plugins.bitbucket.client.repository;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import java.util.Map;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
+import org.codehaus.jackson.map.annotate.JsonDeserialize;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketCloudTeam implements BitbucketTeam {
@@ -40,6 +42,7 @@ public class BitbucketCloudTeam implements BitbucketTeam {
     private String displayName;
 
     @JsonProperty("links")
+    @JsonDeserialize(keyAs = String.class, contentUsing = BitbucketHref.Deserializer.class)
     private Map<String,BitbucketHref> links;
 
     @Override
@@ -61,10 +64,12 @@ public class BitbucketCloudTeam implements BitbucketTeam {
     }
 
     @Override
+    @JsonIgnore
     public Map<String, BitbucketHref> getLinks() {
         return links;
     }
 
+    @JsonIgnore
     public void setLinks(Map<String, BitbucketHref> links) {
         this.links = links;
     }

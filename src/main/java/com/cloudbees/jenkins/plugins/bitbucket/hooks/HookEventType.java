@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016-2017, CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,7 @@ public enum HookEventType {
     /**
      * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html#EventPayloads-Declined">EventPayloads-Declined</a>
      */
-    PULL_REQUEST_DECLINED("pullrequest:declined", PullRequestHookProcessor.class);
+    PULL_REQUEST_DECLINED("pullrequest:rejected", PullRequestHookProcessor.class);
 
     private String key;
     private Class<?> clazz;

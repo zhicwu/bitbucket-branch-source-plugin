@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016-2017, CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequestSource;
+import org.codehaus.jackson.map.annotate.JsonDeserialize;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketServerPullRequest implements BitbucketPullRequest {
@@ -53,6 +54,7 @@ public class BitbucketServerPullRequest implements BitbucketPullRequest {
     private String authorLogin;
 
     @JsonProperty
+    @JsonDeserialize(keyAs = String.class, contentUsing = BitbucketHref.Deserializer.class)
     private Map<String, List<BitbucketHref>> links;
 
     @Override

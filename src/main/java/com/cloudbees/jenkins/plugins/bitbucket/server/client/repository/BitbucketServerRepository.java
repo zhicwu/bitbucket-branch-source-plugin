@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016-2017, CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,7 @@ import java.util.Map;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.map.annotate.JsonDeserialize;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketServerRepository implements BitbucketRepository {
@@ -49,6 +50,7 @@ public class BitbucketServerRepository implements BitbucketRepository {
     private Boolean publc;
 
     @JsonProperty
+    @JsonDeserialize(keyAs = String.class, contentUsing = BitbucketHref.Deserializer.class)
     private Map<String, List<BitbucketHref>> links;
 
     public BitbucketServerRepository() {
