@@ -109,7 +109,11 @@ public class BitbucketSCMSourcePushHookReceiver extends CrumbExclusion implement
             instanceType = BitbucketType.CLOUD;
         }
 
-        type.getProcessor().process(type, body, instanceType, origin);
+        try {
+            type.getProcessor().process(type, body, instanceType, origin);
+        } catch (AbstractMethodError e) {
+            type.getProcessor().process(body, instanceType);
+        }
         return HttpResponses.ok();
     }
 

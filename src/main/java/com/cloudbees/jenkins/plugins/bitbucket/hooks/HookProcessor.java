@@ -25,6 +25,7 @@ package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
 import com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource;
 import hudson.security.ACL;
+import jenkins.scm.api.SCMEvent;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceOwners;
@@ -32,6 +33,9 @@ import jenkins.scm.api.SCMSourceOwners;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.Stapler;
 
 /**
  * Abstract hook processor.
@@ -47,7 +51,21 @@ public abstract class HookProcessor {
     /**
      * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html">Event Payloads</a> for more
      * information about the payload parameter format.
-     * @param type
+     * @param payload the hook payload
+     * @param instanceType the Bitbucket type that called the hook
+     * @deprecated use {@link #process(HookEventType, String, BitbucketType, String)}
+     */
+    @Deprecated
+    @Restricted(NoExternalUse.class) // retained for binary compatibility only
+    public void process(String payload, BitbucketType instanceType) {
+        // no-op as the only caller tries the new method first and falls back to this only for legacy implementations
+        // so either this method will not be called or it is overridden anyway
+    }
+
+    /**
+     * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html">Event Payloads</a> for more
+     * information about the payload parameter format.
+     * @param type the type of hook.
      * @param payload the hook payload
      * @param instanceType the Bitbucket type that called the hook
      * @param origin the origin of the event.
