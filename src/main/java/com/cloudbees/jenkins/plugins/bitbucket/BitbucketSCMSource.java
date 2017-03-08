@@ -91,6 +91,7 @@ import jenkins.scm.impl.UncategorizedSCMHeadCategory;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.WordUtils;
 import org.eclipse.jgit.lib.Constants;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -780,6 +781,7 @@ public class BitbucketSCMSource extends SCMSource {
         return pullRequestContributorCache;
     }
 
+    @Symbol("bitbucket")
     @Extension
     public static class DescriptorImpl extends SCMSourceDescriptor {
 

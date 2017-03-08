@@ -37,6 +37,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 public class BitbucketServerPushEventTest {
@@ -55,8 +56,7 @@ public class BitbucketServerPushEventTest {
 
     @Test
     public void updatePayload() throws Exception {
-        BitbucketPushEvent event =
-                BitbucketServerWebhookPayload.pushEventFromPayload(payload);
+        BitbucketPushEvent event = BitbucketServerWebhookPayload.pushEventFromPayload(payload);
         assertThat(event.getRepository(), notNullValue());
         assertThat(event.getRepository().getScm(), is("git"));
         assertThat(event.getRepository().getFullName(), is("PROJECT_1/rep_1"));
@@ -69,5 +69,19 @@ public class BitbucketServerPushEventTest {
         assertThat(event.getRepository().getLinks().get("self").getHref(),
                 is("http://local.example.com:7990/bitbucket/projects/PROJECT_1/repos/rep_1/browse"));
         assertThat(event.getChanges(), not(containsInAnyOrder()));
+    }
+    
+    @Test
+    public void legacyPayload() throws Exception {
+        BitbucketPushEvent event = BitbucketServerWebhookPayload.pushEventFromPayload(payload);
+        assertThat(event.getRepository(), notNullValue());
+        assertThat(event.getRepository().getScm(), is("git"));
+        assertThat(event.getRepository().getFullName(), is("PROJECT_1/rep_1"));
+        assertThat(event.getRepository().getOwner().getDisplayName(), is("Project 1"));
+        assertThat(event.getRepository().getOwner().getUsername(), is("PROJECT_1"));
+        assertThat(event.getRepository().getRepositoryName(), is("rep_1"));
+        assertThat(event.getRepository().isPrivate(), is(true));
+        assertThat(event.getRepository().getLinks(), nullValue());
+        assertThat(event.getChanges(), containsInAnyOrder());
     }
 }
