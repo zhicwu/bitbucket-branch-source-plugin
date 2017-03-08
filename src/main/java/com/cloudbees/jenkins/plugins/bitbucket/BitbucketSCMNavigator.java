@@ -43,6 +43,7 @@ import jenkins.scm.impl.UncategorizedSCMSourceCategory;
 import org.apache.commons.lang.StringUtils;
 import org.jenkins.ui.icon.Icon;
 import org.jenkins.ui.icon.IconSet;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -70,21 +71,37 @@ import jenkins.scm.api.SCMSourceOwner;
 public class BitbucketSCMNavigator extends SCMNavigator {
 
     private final String repoOwner;
-    private final String credentialsId;
-    private final String checkoutCredentialsId;
+    private String credentialsId;
+    private String checkoutCredentialsId;
     private String pattern = ".*";
     private boolean autoRegisterHooks = false;
     private String bitbucketServerUrl;
     private int sshPort = -1;
 
     @DataBoundConstructor
+    public BitbucketSCMNavigator(String repoOwner, String credentialsId) {
+        this.repoOwner = repoOwner;
+        this.credentialsId = null;
+        this.checkoutCredentialsId = BitbucketSCMSource.DescriptorImpl.SAME;
+    }
+
+    @Deprecated // retained for binary compatibility
     public BitbucketSCMNavigator(String repoOwner, String credentialsId, String checkoutCredentialsId) {
         this.repoOwner = repoOwner;
         this.credentialsId = Util.fixEmpty(credentialsId);
         this.checkoutCredentialsId = checkoutCredentialsId;
     }
 
-    @DataBoundSetter 
+    public void setCredentialsId(String credentialsId) {
+        this.credentialsId = Util.fixEmpty(credentialsId);
+    }
+
+    @DataBoundSetter
+    public void setCheckoutCredentialsId(String checkoutCredentialsId) {
+        this.checkoutCredentialsId = checkoutCredentialsId;
+    }
+
+    @DataBoundSetter
     public void setPattern(String pattern) {
         Pattern.compile(pattern);
         this.pattern = pattern;
@@ -276,6 +293,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         return href == null ? null : href.getHref();
     }
 
+    @Symbol("bitbucket")
     @Extension
     public static class DescriptorImpl extends SCMNavigatorDescriptor {
 
