@@ -79,9 +79,9 @@ public class BitbucketSCMNavigator extends SCMNavigator {
     private int sshPort = -1;
 
     @DataBoundConstructor
-    public BitbucketSCMNavigator(String repoOwner, String credentialsId) {
+    public BitbucketSCMNavigator(String repoOwner) {
         this.repoOwner = repoOwner;
-        this.credentialsId = null;
+        this.credentialsId = null; // highlighting the default is anonymous unless you configure explicitly
         this.checkoutCredentialsId = BitbucketSCMSource.DescriptorImpl.SAME;
     }
 
@@ -92,6 +92,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         this.checkoutCredentialsId = checkoutCredentialsId;
     }
 
+    @DataBoundSetter
     public void setCredentialsId(String credentialsId) {
         this.credentialsId = Util.fixEmpty(credentialsId);
     }
