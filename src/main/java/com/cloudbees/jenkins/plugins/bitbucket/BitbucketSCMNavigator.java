@@ -28,6 +28,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import hudson.console.HyperlinkNote;
 import hudson.model.Action;
 import java.io.IOException;
+import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,16 @@ public class BitbucketSCMNavigator extends SCMNavigator {
     private boolean autoRegisterHooks = false;
     private String bitbucketServerUrl;
     private int sshPort = -1;
+    /**
+     * Ant match expression that indicates what branches to include in the retrieve process.
+     */
+    private String includes = "*";
+
+    /**
+     * Ant match expression that indicates what branches to exclude in the retrieve process.
+     */
+    private String excludes = "";
+
 
     @DataBoundConstructor
     public BitbucketSCMNavigator(String repoOwner, String credentialsId) {
@@ -90,6 +101,16 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         this.repoOwner = repoOwner;
         this.credentialsId = Util.fixEmpty(credentialsId);
         this.checkoutCredentialsId = checkoutCredentialsId;
+    }
+
+    private Object readResolve() throws ObjectStreamException {
+        if (includes == null) {
+            includes = "*";
+        }
+        if (excludes == null) {
+            excludes = "";
+        }
+        return this;
     }
 
     public void setCredentialsId(String credentialsId) {
@@ -161,6 +182,24 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         return bitbucketServerUrl;
     }
 
+    public String getIncludes() {
+        return includes;
+    }
+
+    @DataBoundSetter
+    public void setIncludes(String includes) {
+        this.includes = includes;
+    }
+
+    public String getExcludes() {
+        return excludes;
+    }
+
+    @DataBoundSetter
+    public void setExcludes(String excludes) {
+        this.excludes = excludes;
+    }
+
     @NonNull
     @Override
     protected String id() {
@@ -225,6 +264,8 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         scmSource.setAutoRegisterHook(isAutoRegisterHooks());
         scmSource.setBitbucketServerUrl(bitbucketServerUrl);
         scmSource.setSshPort(sshPort);
+        scmSource.setIncludes(includes);
+        scmSource.setExcludes(excludes);
         projectObserver.addSource(scmSource);
         projectObserver.complete();
     }
