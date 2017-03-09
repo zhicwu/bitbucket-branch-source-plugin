@@ -27,6 +27,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.Bitbucke
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -59,13 +60,13 @@ import jenkins.scm.api.SCMSourceOwners;
 public class WebhookAutoRegisterListener extends ItemListener {
 
     private static final Logger LOGGER = Logger.getLogger(WebhookAutoRegisterListener.class.getName());
-    private static final List<String> CLOUD_EVENTS = Arrays.asList(
+    private static final List<String> CLOUD_EVENTS = Collections.unmodifiableList(Arrays.asList(
             HookEventType.PUSH.getKey(),
             HookEventType.PULL_REQUEST_CREATED.getKey(),
             HookEventType.PULL_REQUEST_UPDATED.getKey(),
             HookEventType.PULL_REQUEST_MERGED.getKey(),
             HookEventType.PULL_REQUEST_DECLINED.getKey()
-    );
+    ));
 
     private static ExecutorService executorService;
 
