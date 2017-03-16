@@ -24,6 +24,7 @@
 package com.cloudbees.jenkins.plugins.bitbucket.client.repository;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
+import java.util.List;
 import java.util.Map;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
@@ -43,7 +44,7 @@ public class BitbucketCloudTeam implements BitbucketTeam {
 
     @JsonProperty("links")
     @JsonDeserialize(keyAs = String.class, contentUsing = BitbucketHref.Deserializer.class)
-    private Map<String,BitbucketHref> links;
+    private Map<String,List<BitbucketHref>> links;
 
     @Override
     public String getName() {
@@ -65,12 +66,12 @@ public class BitbucketCloudTeam implements BitbucketTeam {
 
     @Override
     @JsonIgnore
-    public Map<String, BitbucketHref> getLinks() {
+    public Map<String, List<BitbucketHref>> getLinks() {
         return links;
     }
 
     @JsonIgnore
-    public void setLinks(Map<String, BitbucketHref> links) {
+    public void setLinks(Map<String, List<BitbucketHref>> links) {
         this.links = links;
     }
 }

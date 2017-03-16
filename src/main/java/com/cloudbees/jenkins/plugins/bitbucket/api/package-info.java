@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2017, CloudBees, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,30 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+@Restricted(NoExternalUse.class)
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
-import java.util.List;
-import java.util.Map;
-
-/**
- * Represents a Bitbucket team (or a Project when working with Bitbucket Server).
- */
-public interface BitbucketTeam {
-
-    /**
-     * @return team or project name
-     */
-    String getName();
-
-    /**
-     * @return team or project display name.
-     */
-    String getDisplayName();
-
-    /**
-     * Gets the links of the project.
-     *
-     * @return the links of the project.
-     */
-    Map<String,List<BitbucketHref>> getLinks();
-}
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
