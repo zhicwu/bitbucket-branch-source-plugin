@@ -213,6 +213,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                         } else {
                             result.append(url.getAuthority());
                         }
+                        result.append(url.getPath());
                         result.append("/scm/");
                         result.append(owner);
                         result.append('/');
