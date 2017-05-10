@@ -25,18 +25,11 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.model.Item;
-import hudson.model.ItemGroup;
-import hudson.model.Job;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.TaskListener;
+import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.plugins.git.Revision;
@@ -44,12 +37,13 @@ import hudson.plugins.git.util.BuildData;
 import hudson.plugins.mercurial.MercurialTagAction;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
-import java.io.File;
-import java.io.IOException;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
 import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * This class encapsulates all Bitbucket notifications logic.
@@ -74,16 +68,18 @@ public class BitbucketBuildStatusNotifications {
                 return;
             }
             BitbucketBuildStatus status = null;
+            String name = build.getParent().getFullName();
+            String displayName = build.getFullDisplayName();
             if (Result.SUCCESS.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "This commit looks good", "SUCCESSFUL", url, build.getParent().getName(), build.getDisplayName());
+                status = new BitbucketBuildStatus(revision, "This commit looks good", "SUCCESSFUL", url, name, displayName);
             } else if (Result.UNSTABLE.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "This commit has test failures", "FAILED", url, build.getParent().getName(), build.getDisplayName());
+                status = new BitbucketBuildStatus(revision, "This commit has test failures", "FAILED", url, name, displayName);
             } else if (Result.FAILURE.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "There was a failure building this commit", "FAILED", url, build.getParent().getName(), build.getDisplayName());
+                status = new BitbucketBuildStatus(revision, "There was a failure building this commit", "FAILED", url, name, displayName);
             } else if (result != null) { // ABORTED etc.
-                status = new BitbucketBuildStatus(revision, "Something is wrong with the build of this commit", "FAILED", url, build.getParent().getName(), build.getDisplayName());
+                status = new BitbucketBuildStatus(revision, "Something is wrong with the build of this commit", "FAILED", url, name, displayName);
             } else {
-                status = new BitbucketBuildStatus(revision, "The tests have started...", "INPROGRESS", url, build.getParent().getName(), build.getDisplayName());
+                status = new BitbucketBuildStatus(revision, "The tests have started...", "INPROGRESS", url, name, displayName);
             }
             if (status != null) {
                 getNotifier(bitbucket).buildStatus(status);
