@@ -32,7 +32,6 @@ import hudson.util.FormValidation;
 import java.net.MalformedURLException;
 import java.net.URL;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -67,7 +66,7 @@ public class BitbucketServerEndpoint extends AbstractBitbucketEndpoint {
                                    @CheckForNull String credentialsId) {
         super(manageHooks, credentialsId);
         this.displayName = Util.fixEmpty(displayName);
-        this.serverUrl = StringUtils.defaultString(serverUrl).replaceAll("/$", "");
+        this.serverUrl = BitbucketEndpointConfiguration.normalizeServerUrl(serverUrl);
     }
 
     /**

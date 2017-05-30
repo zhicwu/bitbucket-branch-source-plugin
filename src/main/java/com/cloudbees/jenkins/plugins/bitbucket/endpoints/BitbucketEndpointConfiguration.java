@@ -27,13 +27,18 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.ExtensionList;
+import hudson.Util;
 import hudson.security.ACL;
 import hudson.util.ListBoxModel;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Set;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
@@ -103,7 +108,7 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
      * @return {@code true} if and only if there is more than one configured endpoint.
      */
     public boolean isEndpointSelectable() {
-        return get().getEndpoints().size() > 1;
+        return getEndpoints().size() > 1;
     }
 
     /**
@@ -148,15 +153,19 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
      * @param endpoints the list of endpoints.
      */
     public synchronized void setEndpoints(@CheckForNull List<AbstractBitbucketEndpoint> endpoints) {
-        endpoints = new ArrayList<AbstractBitbucketEndpoint>(
-                endpoints == null ? Collections.<AbstractBitbucketEndpoint>emptyList() : endpoints);
+        Jenkins.getActiveInstance().checkPermission(Jenkins.ADMINISTER);
+        endpoints = new ArrayList<>(Util.fixNull(endpoints));
         // remove duplicates and empty urls
         Set<String> serverUrls = new HashSet<String>();
-        for (Iterator<AbstractBitbucketEndpoint> iterator = endpoints.iterator(); iterator.hasNext(); ) {
+        for (ListIterator<AbstractBitbucketEndpoint> iterator = endpoints.listIterator(); iterator.hasNext(); ) {
             AbstractBitbucketEndpoint endpoint = iterator.next();
             String serverUrl = endpoint.getServerUrl();
             if (StringUtils.isBlank(serverUrl) || serverUrls.contains(serverUrl)) {
                 iterator.remove();
+            } else if (!(endpoint instanceof BitbucketCloudEndpoint)
+                    && BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
+                // fix type for the special case
+                iterator.set(new BitbucketCloudEndpoint(endpoint.isManageHooks(), endpoint.getCredentialsId()));
             }
             serverUrls.add(serverUrl);
         }
@@ -262,7 +271,36 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
      */
     @NonNull
     public static String normalizeServerUrl(@CheckForNull String serverUrl) {
-        return StringUtils.defaultIfBlank(serverUrl, BitbucketCloudEndpoint.SERVER_URL).replaceAll("/$", "");
+        serverUrl = StringUtils.defaultIfBlank(serverUrl, BitbucketCloudEndpoint.SERVER_URL);
+        try {
+            URI uri = new URI(serverUrl).normalize();
+            String scheme = uri.getScheme();
+            if ("http".equals(scheme) || "https".equals(scheme)) {
+                // we only expect http / https, but also these are the only ones where we know the authority
+                // is server based, i.e. [userinfo@]server[:port]
+                // DNS names must be US-ASCII and are case insensitive, so we force all to lowercase
+
+                String host = uri.getHost() == null ? null : uri.getHost().toLowerCase(Locale.ENGLISH);
+                int port = uri.getPort();
+                if ("http".equals(scheme) && port == 80) {
+                    port = -1;
+                } else if ("https".equals(scheme) && port == 443) {
+                    port = -1;
+                }
+                serverUrl = new URI(
+                        scheme,
+                        uri.getUserInfo(),
+                        host,
+                        port,
+                        uri.getPath(),
+                        uri.getQuery(),
+                        uri.getFragment()
+                ).toASCIIString();
+            }
+        } catch (URISyntaxException e) {
+            // ignore, this was a best effort tidy-up
+        }
+        return serverUrl.replaceAll("/$", "");
     }
 
 }

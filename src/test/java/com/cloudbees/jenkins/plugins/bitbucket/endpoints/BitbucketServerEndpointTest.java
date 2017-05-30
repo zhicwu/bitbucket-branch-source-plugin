@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.endpoints;
 
+import hudson.util.FormValidation;
 import org.junit.Test;
 
 import static org.hamcrest.Matchers.is;
@@ -37,5 +38,18 @@ public class BitbucketServerEndpointTest {
                 is("Dummy"));
         assertThat(new BitbucketServerEndpoint("Dummy", "http://dummy.example.com", false, null).getServerUrl(), is(
                 "http://dummy.example.com"));
+    }
+
+    @Test
+    public void given__badUrl__when__check__then__fail() {
+        BitbucketServerEndpoint.DescriptorImpl descriptor = new BitbucketServerEndpoint.DescriptorImpl();
+        assertThat(BitbucketServerEndpoint.DescriptorImpl.doCheckServerUrl("").kind, is(FormValidation.Kind.ERROR));
+    }
+
+    @Test
+    public void given__goodUrl__when__check__then__ok() {
+        BitbucketServerEndpoint.DescriptorImpl descriptor = new BitbucketServerEndpoint.DescriptorImpl();
+        assertThat(BitbucketServerEndpoint.DescriptorImpl.doCheckServerUrl("http://bitbucket.example.com").kind,
+                is(FormValidation.Kind.OK));
     }
 }
