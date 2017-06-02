@@ -2,6 +2,7 @@ package com.cloudbees.jenkins.plugins.bitbucket.client;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -12,7 +13,7 @@ import hudson.Extension;
 public class BitbucketCloudApiFactory extends BitbucketApiFactory {
     @Override
     protected boolean isMatch(@Nullable String serverUrl) {
-        return serverUrl == null;
+        return serverUrl == null || BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl);
     }
 
     @NonNull
