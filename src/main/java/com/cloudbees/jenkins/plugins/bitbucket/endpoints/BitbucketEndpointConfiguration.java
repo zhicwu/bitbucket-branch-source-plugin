@@ -152,12 +152,12 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
      *
      * @param endpoints the list of endpoints.
      */
-    public synchronized void setEndpoints(@CheckForNull List<AbstractBitbucketEndpoint> endpoints) {
+    public synchronized void setEndpoints(@CheckForNull List<? extends AbstractBitbucketEndpoint> endpoints) {
         Jenkins.getActiveInstance().checkPermission(Jenkins.ADMINISTER);
-        endpoints = new ArrayList<>(Util.fixNull(endpoints));
+        List<AbstractBitbucketEndpoint> eps = new ArrayList<>(Util.fixNull(endpoints));
         // remove duplicates and empty urls
         Set<String> serverUrls = new HashSet<String>();
-        for (ListIterator<AbstractBitbucketEndpoint> iterator = endpoints.listIterator(); iterator.hasNext(); ) {
+        for (ListIterator<AbstractBitbucketEndpoint> iterator = eps.listIterator(); iterator.hasNext(); ) {
             AbstractBitbucketEndpoint endpoint = iterator.next();
             String serverUrl = endpoint.getServerUrl();
             if (StringUtils.isBlank(serverUrl) || serverUrls.contains(serverUrl)) {
@@ -169,10 +169,10 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
             }
             serverUrls.add(serverUrl);
         }
-        if (endpoints.isEmpty()) {
-            endpoints.add(new BitbucketCloudEndpoint(false, null));
+        if (eps.isEmpty()) {
+            eps.add(new BitbucketCloudEndpoint(false, null));
         }
-        this.endpoints = endpoints;
+        this.endpoints = eps;
         save();
     }
 
