@@ -271,13 +271,14 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      * {@inheritDoc}
      */
     @Override
-    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException, InterruptedException {
+    public boolean checkPathExists(@NonNull String branchOrHash, @NonNull String path)
+            throws IOException, InterruptedException {
         StringBuilder url = new StringBuilder(V1_API_BASE_URL);
         url.append(owner);
         url.append('/');
         url.append(repositoryName);
         url.append("/raw/");
-        url.append(Util.rawEncode(branch));
+        url.append(Util.rawEncode(branchOrHash));
         for (String segment : StringUtils.split(path, "/")) {
             url.append('/');
             url.append(Util.rawEncode(segment));

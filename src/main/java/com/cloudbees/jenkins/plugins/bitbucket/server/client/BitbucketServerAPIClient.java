@@ -318,7 +318,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
      * {@inheritDoc}
      */
     @Override
-    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException {
+    public boolean checkPathExists(@NonNull String branchOrHash, @NonNull String path) throws IOException {
         StringBuilder encodedPath = new StringBuilder(path.length() + 10);
         boolean first = true;
         for (String segment : StringUtils.split(path, "/")) {
@@ -330,7 +330,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             encodedPath.append(Util.rawEncode(segment));
         }
         int status = getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, encodedPath,
-                URLEncoder.encode(branch, "UTF-8")));
+                URLEncoder.encode(branchOrHash, "UTF-8")));
         return HttpStatus.SC_OK == status;
     }
 
