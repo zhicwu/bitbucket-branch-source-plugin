@@ -36,6 +36,8 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestCommits;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequests;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
@@ -341,12 +343,15 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     @NonNull
     @Override
     public String resolveSourceFullHash(@NonNull BitbucketPullRequest pull) throws IOException, InterruptedException {
-        String url = V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" +
-                pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit()
-                .getHash();
+        String url = V2_API_BASE_URL + owner + "/" + repositoryName + "/pullrequests/" + pull.getId()
+                + "/commits?fields=values.hash&pagelen=1";
         String response = getRequest(url);
         try {
-            return parse(response, BitbucketCloudCommit.class).getHash();
+            BitbucketPullRequestCommits commits = parse(response, BitbucketPullRequestCommits.class);
+            for (BitbucketPullRequestCommit commit : Util.fixNull(commits.getValues())) {
+                return commit.getHash();
+            }
+            throw new BitbucketException("Could not determine commit for pull request " + pull.getId());
         } catch (IOException e) {
             throw new IOException("I/O error when parsing response from URL: " + url, e);
         }
