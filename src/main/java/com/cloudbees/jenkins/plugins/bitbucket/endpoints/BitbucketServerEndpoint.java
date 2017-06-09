@@ -87,6 +87,17 @@ public class BitbucketServerEndpoint extends AbstractBitbucketEndpoint {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @NonNull
+    @Override
+    public String getRepositoryUrl(@NonNull String repoOwner, @NonNull String repository) {
+        return serverUrl + (repoOwner.startsWith("~")
+                ? "/users/" + Util.rawEncode(repoOwner.substring(1))
+                : "/projects/" + Util.rawEncode(repoOwner)) + "/repos/" + Util.rawEncode(repository);
+    }
+
+    /**
      * Our descriptor.
      */
     @Extension

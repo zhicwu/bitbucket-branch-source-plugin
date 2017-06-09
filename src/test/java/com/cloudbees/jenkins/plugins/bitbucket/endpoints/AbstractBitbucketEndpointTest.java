@@ -29,6 +29,7 @@ import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.Util;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
@@ -113,6 +114,12 @@ public class AbstractBitbucketEndpointTest {
         @Override
         public String getServerUrl() {
             return "http://dummy.example.com";
+        }
+
+        @NonNull
+        @Override
+        public String getRepositoryUrl(@NonNull String repoOwner, @NonNull String repository) {
+            return "http://dummy.example.com/" + Util.rawEncode(repoOwner) + "/" + Util.rawEncode(repository);
         }
     }
 

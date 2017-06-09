@@ -37,4 +37,10 @@ public class BitbucketCloudEndpointTest {
         assertThat(new BitbucketCloudEndpoint(false, null).getServerUrl(), is(BitbucketCloudEndpoint.SERVER_URL));
     }
 
+    @Test
+    public void getRepositoryUrl() {
+        assertThat(new BitbucketCloudEndpoint(false, null).getRepositoryUrl("tester", "test-repo"),
+                is("https://bitbucket.org/tester/test-repo"));
+    }
+
 }

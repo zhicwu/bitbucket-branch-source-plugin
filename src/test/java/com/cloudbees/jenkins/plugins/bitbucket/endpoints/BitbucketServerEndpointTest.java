@@ -41,6 +41,16 @@ public class BitbucketServerEndpointTest {
     }
 
     @Test
+    public void getRepositoryUrl() {
+        assertThat(new BitbucketServerEndpoint("Dummy", "http://dummy.example.com", false, null)
+                        .getRepositoryUrl("TST", "test-repo"),
+                is("http://dummy.example.com/projects/TST/repos/test-repo"));
+        assertThat(new BitbucketServerEndpoint("Dummy", "http://dummy.example.com", false, null)
+                        .getRepositoryUrl("~tester", "test-repo"),
+                is("http://dummy.example.com/users/tester/repos/test-repo"));
+    }
+
+    @Test
     public void given__badUrl__when__check__then__fail() {
         BitbucketServerEndpoint.DescriptorImpl descriptor = new BitbucketServerEndpoint.DescriptorImpl();
         assertThat(BitbucketServerEndpoint.DescriptorImpl.doCheckServerUrl("").kind, is(FormValidation.Kind.ERROR));

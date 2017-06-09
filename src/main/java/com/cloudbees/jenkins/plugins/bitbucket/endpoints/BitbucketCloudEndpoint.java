@@ -27,6 +27,7 @@ import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredenti
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.Util;
 import javax.annotation.Nonnull;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -69,6 +70,15 @@ public class BitbucketCloudEndpoint extends AbstractBitbucketEndpoint {
     @Override
     public String getServerUrl() {
         return SERVER_URL;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
+    @Override
+    public String getRepositoryUrl(@NonNull String repoOwner, @NonNull String repository) {
+        return SERVER_URL + "/" + Util.rawEncode(repoOwner) + "/" + Util.rawEncode(repository);
     }
 
     /**

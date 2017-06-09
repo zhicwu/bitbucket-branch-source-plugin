@@ -81,6 +81,16 @@ public abstract class AbstractBitbucketEndpoint extends AbstractDescribableImpl<
     public abstract String getServerUrl();
 
     /**
+     * The user facing URL of the specified repository.
+     *
+     * @param repoOwner  the repository owner.
+     * @param repository the repository.
+     * @return the user facing URL of the specified repository.
+     */
+    @NonNull
+    public abstract String getRepositoryUrl(@NonNull String repoOwner, @NonNull String repository);
+
+    /**
      * Returns {@code true} if and only if Jenkins is supposed to auto-manage hooks for this end-point.
      *
      * @return {@code true} if and only if Jenkins is supposed to auto-manage hooks for this end-point.
