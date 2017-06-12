@@ -1,6 +1,5 @@
 <com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource>
-  <id>com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMNavigator::https://bitbucket.test::DUB::stunning-adventure
-  </id>
+  <id>com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMNavigator::https://bitbucket.test::DUB::stunning-adventure</id>
   <credentialsId>bb-beescloud</credentialsId>
   <checkoutCredentialsId>SAME</checkoutCredentialsId>
   <repoOwner>DUB</repoOwner>
