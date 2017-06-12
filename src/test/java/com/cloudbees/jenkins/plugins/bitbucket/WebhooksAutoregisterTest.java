@@ -23,27 +23,27 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.BranchScanningIntegrationTest.MultiBranchProjectImpl;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.WebhookAutoRegisterListener;
+import hudson.model.listeners.ItemListener;
+import hudson.util.RingBufferLogHandler;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-
+import jenkins.branch.BranchSource;
+import jenkins.branch.DefaultBranchPropertyStrategy;
+import jenkins.model.JenkinsLocationConfiguration;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
-import org.xml.sax.SAXException;
-
-import com.cloudbees.jenkins.plugins.bitbucket.BranchScanningIntegrationTest.MultiBranchProjectImpl;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.WebhookAutoRegisterListener;
-
-import hudson.util.RingBufferLogHandler;
-import jenkins.branch.BranchSource;
-import jenkins.branch.DefaultBranchPropertyStrategy;
-import jenkins.model.JenkinsLocationConfiguration;
 
 public class WebhooksAutoregisterTest {
 
@@ -53,7 +53,7 @@ public class WebhooksAutoregisterTest {
     @Test
     public void registerHookTest() throws Exception {
         BitbucketApi mock = Mockito.mock(BitbucketApi.class);
-        BitbucketMockApiFactory.add(null, mock);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, mock);
         RingBufferLogHandler log = createJULTestHandler();
 
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
@@ -70,7 +70,28 @@ public class WebhooksAutoregisterTest {
 
     }
 
-    private void setRootUrl() throws IOException, SAXException, Exception {
+    @Test
+    public void registerHookTest2() throws Exception {
+        BitbucketEndpointConfiguration.get().setEndpoints(Collections.singletonList(
+                new BitbucketCloudEndpoint(true, "dummy")));
+        BitbucketApi mock = Mockito.mock(BitbucketApi.class);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, mock);
+        RingBufferLogHandler log = createJULTestHandler();
+
+        MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
+        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        p.getSourcesList().add(new BranchSource(source));
+        p.scheduleBuild2(0);
+        waitForLogFileMessage("Can not register hook. Jenkins root URL is not valid", log);
+
+        setRootUrl();
+        ItemListener.fireOnUpdated(p);
+
+        waitForLogFileMessage("Registering hook for amuniz/test-repos", log);
+
+    }
+
+    private void setRootUrl() throws Exception {
         JenkinsLocationConfiguration.get().setUrl(j.getURL().toString().replace("localhost", "127.0.0.1"));
     }
 

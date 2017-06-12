@@ -8,6 +8,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import hudson.model.Result;
 import hudson.model.TopLevelItem;
 import java.io.IOException;
@@ -125,7 +126,7 @@ public class ScanningFailuresTest {
         when(api.resolveCommit(sampleRepo.head())).thenReturn(commit);
         when(commit.getDateMillis()).thenReturn(System.currentTimeMillis());
 
-        when(api.checkPathExists("master", "Jenkinsfile")).thenReturn(true);
+        when(api.checkPathExists(Mockito.anyString(), eq("Jenkinsfile"))).thenReturn(true);
 
         when(api.getRepositoryUri(eq(BitbucketRepositoryType.GIT),
                 any(BitbucketRepositoryProtocol.class),
@@ -140,7 +141,7 @@ public class ScanningFailuresTest {
         when(repository.getRepositoryName()).thenReturn("foo");
         when(repository.getScm()).thenReturn("git");
 
-        BitbucketMockApiFactory.add(null, api);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
         mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
 
@@ -191,7 +192,7 @@ public class ScanningFailuresTest {
         when(api.resolveCommit(sampleRepo.head())).thenReturn(commit);
         when(commit.getDateMillis()).thenReturn(System.currentTimeMillis());
 
-        when(api.checkPathExists("master", "Jenkinsfile")).thenReturn(true);
+        when(api.checkPathExists(Mockito.anyString(), eq("Jenkinsfile"))).thenReturn(true);
 
         when(api.getRepositoryUri(eq(BitbucketRepositoryType.GIT),
                 any(BitbucketRepositoryProtocol.class),
@@ -206,7 +207,7 @@ public class ScanningFailuresTest {
         when(repository.getRepositoryName()).thenReturn("foo");
         when(repository.getScm()).thenReturn("git");
 
-        BitbucketMockApiFactory.add(null, api);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
         mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
 
@@ -218,7 +219,7 @@ public class ScanningFailuresTest {
         assertThat(master, notNullValue());
 
         // an error in checkPathExists(...)
-        when(api.checkPathExists("master", "Jenkinsfile")).thenThrow(new IOException(message));
+        when(api.checkPathExists(Mockito.anyString(), eq("Jenkinsfile"))).thenThrow(new IOException(message));
 
         mp.scheduleBuild2(0).getFuture().get();
         assertThat(mp.getIndexing().getResult(), is(Result.FAILURE));
@@ -249,7 +250,7 @@ public class ScanningFailuresTest {
         when(api.resolveCommit(sampleRepo.head())).thenReturn(commit);
         when(commit.getDateMillis()).thenReturn(System.currentTimeMillis());
 
-        when(api.checkPathExists("master", "Jenkinsfile")).thenReturn(true);
+        when(api.checkPathExists(Mockito.anyString(), eq("Jenkinsfile"))).thenReturn(true);
 
         when(api.getRepositoryUri(eq(BitbucketRepositoryType.GIT),
                 any(BitbucketRepositoryProtocol.class),
@@ -264,7 +265,7 @@ public class ScanningFailuresTest {
         when(repository.getRepositoryName()).thenReturn("foo");
         when(repository.getScm()).thenReturn("git");
 
-        BitbucketMockApiFactory.add(null, api);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
         mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
 
@@ -311,7 +312,7 @@ public class ScanningFailuresTest {
         when(api.resolveCommit(sampleRepo.head())).thenReturn(commit);
         when(commit.getDateMillis()).thenReturn(System.currentTimeMillis());
 
-        when(api.checkPathExists("master", "Jenkinsfile")).thenReturn(true);
+        when(api.checkPathExists(Mockito.anyString(), eq("Jenkinsfile"))).thenReturn(true);
 
         when(api.getRepositoryUri(eq(BitbucketRepositoryType.GIT),
                 any(BitbucketRepositoryProtocol.class),
@@ -326,7 +327,7 @@ public class ScanningFailuresTest {
         when(repository.getRepositoryName()).thenReturn("foo");
         when(repository.getScm()).thenReturn("git");
 
-        BitbucketMockApiFactory.add(null, api);
+        BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
         mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
 

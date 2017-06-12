@@ -29,37 +29,76 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.AbstractBitbucketEndpoint;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
+import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
+import hudson.RestrictedSince;
 import hudson.Util;
 import hudson.console.HyperlinkNote;
 import hudson.model.Action;
+import hudson.model.Queue;
 import hudson.model.TaskListener;
+import hudson.model.queue.Tasks;
+import hudson.plugins.git.GitSCM;
+import hudson.plugins.mercurial.MercurialSCM;
+import hudson.plugins.mercurial.traits.MercurialBrowserSCMSourceTrait;
+import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
-import javax.annotation.CheckForNull;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import jenkins.plugins.git.traits.GitBrowserSCMSourceTrait;
 import jenkins.scm.api.SCMNavigator;
 import jenkins.scm.api.SCMNavigatorDescriptor;
 import jenkins.scm.api.SCMNavigatorEvent;
 import jenkins.scm.api.SCMNavigatorOwner;
+import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceCategory;
 import jenkins.scm.api.SCMSourceObserver;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.metadata.ObjectMetadataAction;
+import jenkins.scm.api.mixin.ChangeRequestCheckoutStrategy;
+import jenkins.scm.api.trait.SCMNavigatorRequest;
+import jenkins.scm.api.trait.SCMNavigatorTrait;
+import jenkins.scm.api.trait.SCMNavigatorTraitDescriptor;
+import jenkins.scm.api.trait.SCMSourceTrait;
+import jenkins.scm.api.trait.SCMTrait;
+import jenkins.scm.api.trait.SCMTraitDescriptor;
 import jenkins.scm.impl.UncategorizedSCMSourceCategory;
+import jenkins.scm.impl.form.NamedArrayList;
+import jenkins.scm.impl.trait.Discovery;
+import jenkins.scm.impl.trait.RegexSCMSourceFilterTrait;
+import jenkins.scm.impl.trait.Selection;
+import jenkins.scm.impl.trait.WildcardSCMHeadFilterTrait;
 import org.apache.commons.lang.StringUtils;
 import org.jenkins.ui.icon.Icon;
 import org.jenkins.ui.icon.IconSet;
 import org.jenkinsci.Symbol;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.DoNotUse;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -67,70 +106,106 @@ import org.kohsuke.stapler.QueryParameter;
 
 public class BitbucketSCMNavigator extends SCMNavigator {
 
-    private final String repoOwner;
-    private String credentialsId;
-    private String checkoutCredentialsId;
-    private String pattern = ".*";
-    private boolean autoRegisterHooks = false;
-    private String bitbucketServerUrl;
-    /**
-     * Ant match expression that indicates what branches to include in the retrieve process.
-     */
-    private String includes = "*";
+    private static final Logger LOGGER = Logger.getLogger(BitbucketSCMSource.class.getName());
 
-    /**
-     * Ant match expression that indicates what branches to exclude in the retrieve process.
-     */
-    private String excludes = "";
+    @NonNull
+    private String serverUrl;
+    @CheckForNull
+    private String credentialsId;
+    @NonNull
+    private final String repoOwner;
+    @NonNull
+    private List<SCMTrait<? extends SCMTrait<?>>> traits;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient String checkoutCredentialsId;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient String pattern;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient boolean autoRegisterHooks;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient String includes;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient String excludes;
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    private transient String bitbucketServerUrl;
 
 
     @DataBoundConstructor
     public BitbucketSCMNavigator(String repoOwner) {
+        this.serverUrl = BitbucketCloudEndpoint.SERVER_URL;
         this.repoOwner = repoOwner;
+        this.traits = new ArrayList<>();
         this.credentialsId = null; // highlighting the default is anonymous unless you configure explicitly
-        this.checkoutCredentialsId = BitbucketSCMSource.DescriptorImpl.SAME;
+        this.traits.add(new BranchDiscoveryTrait(true, false));
+        this.traits.add(new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE)));
+        this.traits.add(new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE),
+                new ForkPullRequestDiscoveryTrait.TrustTeamForks()));
     }
 
     @Deprecated // retained for binary compatibility
     public BitbucketSCMNavigator(String repoOwner, String credentialsId, String checkoutCredentialsId) {
+        this.serverUrl = BitbucketCloudEndpoint.SERVER_URL;
         this.repoOwner = repoOwner;
+        this.traits = new ArrayList<>();
         this.credentialsId = Util.fixEmpty(credentialsId);
-        this.checkoutCredentialsId = checkoutCredentialsId;
+        // code invoking legacy constructor will want the legacy discovery model
+        this.traits.add(new BranchDiscoveryTrait(true, true));
+        this.traits.add(new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)));
+        this.traits.add(new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                new ForkPullRequestDiscoveryTrait.TrustEveryone()));
+        this.traits.add(new PublicRepoPullRequestFilterTrait());
+        if (checkoutCredentialsId != null
+                && !BitbucketSCMSource.DescriptorImpl.SAME.equals(checkoutCredentialsId)) {
+            this.traits.add(new SSHCheckoutTrait(checkoutCredentialsId));
+        }
     }
 
+    @SuppressWarnings({"ConstantConditions", "deprecation"})
+    @SuppressFBWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE",
+                        justification = "Only non-null after we set them here!")
     private Object readResolve() throws ObjectStreamException {
-        if (includes == null) {
-            includes = "*";
+        if (serverUrl == null) {
+            serverUrl = BitbucketEndpointConfiguration.get().readResolveServerUrl(bitbucketServerUrl);
         }
-        if (excludes == null) {
-            excludes = "";
+        if (traits == null) {
+            // legacy instance, reconstruct traits to reflect legacy behaviour
+            traits = new ArrayList<>();
+            this.traits.add(new BranchDiscoveryTrait(true, true));
+            this.traits.add(new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)));
+            this.traits.add(new ForkPullRequestDiscoveryTrait(
+                    EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                    new ForkPullRequestDiscoveryTrait.TrustEveryone())
+            );
+            this.traits.add(new PublicRepoPullRequestFilterTrait());
+            if ((includes != null && !"*".equals(includes)) || (excludes != null && !"".equals(excludes))) {
+                traits.add(new WildcardSCMHeadFilterTrait(
+                        StringUtils.defaultIfBlank(includes, "*"),
+                        StringUtils.defaultIfBlank(excludes, "")));
+            }
+            if (checkoutCredentialsId != null
+                    && !BitbucketSCMSource.DescriptorImpl.SAME.equals(checkoutCredentialsId)) {
+                traits.add(new SSHCheckoutTrait(checkoutCredentialsId));
+            }
+            traits.add(new WebhookRegistrationTrait(
+                    autoRegisterHooks ? WebhookRegistration.ITEM : WebhookRegistration.DISABLE)
+            );
+            if (pattern != null && !".*".equals(pattern)) {
+                traits.add(new RegexSCMSourceFilterTrait(pattern));
+            }
         }
         return this;
-    }
-
-    @DataBoundSetter
-    public void setCredentialsId(String credentialsId) {
-        this.credentialsId = Util.fixEmpty(credentialsId);
-    }
-
-    @DataBoundSetter
-    public void setCheckoutCredentialsId(String checkoutCredentialsId) {
-        this.checkoutCredentialsId = checkoutCredentialsId;
-    }
-
-    @DataBoundSetter
-    public void setPattern(String pattern) {
-        Pattern.compile(pattern);
-        this.pattern = pattern;
-    }
-
-    @DataBoundSetter
-    public void setAutoRegisterHooks(boolean autoRegisterHooks) {
-        this.autoRegisterHooks = autoRegisterHooks;
-    }
-
-    public String getRepoOwner() {
-        return repoOwner;
     }
 
     @CheckForNull
@@ -138,59 +213,231 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         return credentialsId;
     }
 
-    @CheckForNull
-    public String getCheckoutCredentialsId() {
-        return checkoutCredentialsId;
+    public String getRepoOwner() {
+        return repoOwner;
     }
 
-    public String getPattern() {
-        return pattern;
+    @NonNull
+    public List<SCMTrait<?>> getTraits() {
+        return Collections.unmodifiableList(traits);
     }
 
+    @DataBoundSetter
+    public void setCredentialsId(@CheckForNull String credentialsId) {
+        this.credentialsId = Util.fixEmpty(credentialsId);
+    }
+
+    @DataBoundSetter
+    public void setTraits(@NonNull List<SCMTrait<? extends SCMTrait<?>>> traits) {
+        this.traits = new ArrayList<>(/*defensive*/Util.fixNull(traits));
+    }
+
+    public String getServerUrl() {
+        return serverUrl;
+    }
+
+    @DataBoundSetter
+    public void setServerUrl(String serverUrl) {
+        serverUrl = BitbucketEndpointConfiguration.normalizeServerUrl(serverUrl);
+        if (!StringUtils.equals(this.serverUrl, serverUrl)) {
+            this.serverUrl = serverUrl;
+            resetId();
+        }
+    }
+
+    @Deprecated
+    @Restricted(DoNotUse.class)
+    @RestrictedSince("2.2.0")
+    @DataBoundSetter
+    public void setPattern(String pattern) {
+        for (int i = 0; i < traits.size(); i++) {
+            SCMTrait<?> trait = traits.get(i);
+            if (trait instanceof RegexSCMSourceFilterTrait) {
+                if (".*".equals(pattern)) {
+                    traits.remove(i);
+                } else {
+                    traits.set(i, new RegexSCMSourceFilterTrait(pattern));
+                }
+                return;
+            }
+        }
+        if (!".*".equals(pattern)) {
+            traits.add(new RegexSCMSourceFilterTrait(pattern));
+        }
+    }
+
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    @DataBoundSetter
+    public void setAutoRegisterHooks(boolean autoRegisterHook) {
+        for (Iterator<SCMTrait<? extends SCMTrait<?>>> iterator = traits.iterator(); iterator.hasNext(); ) {
+            if (iterator.next() instanceof WebhookRegistrationTrait) {
+                iterator.remove();
+            }
+        }
+        traits.add(new WebhookRegistrationTrait(
+                autoRegisterHook ? WebhookRegistration.ITEM : WebhookRegistration.DISABLE
+        ));
+    }
+
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
     public boolean isAutoRegisterHooks() {
-        return autoRegisterHooks;
+        for (SCMTrait<? extends SCMTrait<?>> t : traits) {
+            if (t instanceof WebhookRegistrationTrait) {
+                return ((WebhookRegistrationTrait) t).getMode() != WebhookRegistration.DISABLE;
+            }
+        }
+        return true;
     }
 
+
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    @NonNull
+    public String getCheckoutCredentialsId() {
+        for (SCMTrait<?> t : traits) {
+            if (t instanceof SSHCheckoutTrait) {
+                return StringUtils.defaultString(((SSHCheckoutTrait) t).getCredentialsId(), BitbucketSCMSource
+                        .DescriptorImpl.ANONYMOUS);
+            }
+        }
+        return BitbucketSCMSource.DescriptorImpl.SAME;
+    }
+
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    @DataBoundSetter
+    public void setCheckoutCredentialsId(String checkoutCredentialsId) {
+        for (Iterator<SCMTrait<?>> iterator = traits.iterator(); iterator.hasNext(); ) {
+            if (iterator.next() instanceof SSHCheckoutTrait) {
+                iterator.remove();
+            }
+        }
+        if (checkoutCredentialsId != null && !BitbucketSCMSource.DescriptorImpl.SAME.equals(checkoutCredentialsId)) {
+            traits.add(new SSHCheckoutTrait(checkoutCredentialsId));
+        }
+    }
+
+    @Deprecated
+    @Restricted(DoNotUse.class)
+    @RestrictedSince("2.2.0")
+    public String getPattern() {
+        for (SCMTrait<?> trait : traits) {
+            if (trait instanceof RegexSCMSourceFilterTrait) {
+                return ((RegexSCMSourceFilterTrait) trait).getRegex();
+            }
+        }
+        return ".*";
+    }
+
+    @Deprecated
+    @Restricted(DoNotUse.class)
+    @RestrictedSince("2.2.0")
     @DataBoundSetter
     public void setBitbucketServerUrl(String url) {
-        if (StringUtils.equals(this.bitbucketServerUrl, url)) {
+        url = BitbucketEndpointConfiguration.normalizeServerUrl(url);
+        AbstractBitbucketEndpoint endpoint = BitbucketEndpointConfiguration.get().findEndpoint(url);
+        if (endpoint != null) {
+            // we have a match
+            setServerUrl(url);
             return;
         }
-        this.bitbucketServerUrl = Util.fixEmpty(url);
-        if (this.bitbucketServerUrl != null) {
-            // Remove a possible trailing slash
-            this.bitbucketServerUrl = this.bitbucketServerUrl.replaceAll("/$", "");
-        }
-        resetId();
+        LOGGER.log(Level.WARNING, "Call to legacy setBitbucketServerUrl({0}) method is configuring an url missing "
+                + "from the global configuration.", url);
+        setServerUrl(url);
     }
 
+    @Deprecated
+    @Restricted(DoNotUse.class)
+    @RestrictedSince("2.2.0")
     @CheckForNull
     public String getBitbucketServerUrl() {
-        return bitbucketServerUrl;
+        if (BitbucketEndpointConfiguration.get().findEndpoint(serverUrl) instanceof BitbucketCloudEndpoint) {
+            return null;
+        }
+        return serverUrl;
     }
 
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    @NonNull
     public String getIncludes() {
-        return includes;
+        for (SCMTrait<?> trait : traits) {
+            if (trait instanceof WildcardSCMHeadFilterTrait) {
+                return ((WildcardSCMHeadFilterTrait) trait).getIncludes();
+            }
+        }
+        return "*";
     }
 
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
     @DataBoundSetter
-    public void setIncludes(String includes) {
-        this.includes = includes;
+    public void setIncludes(@NonNull String includes) {
+        for (int i = 0; i < traits.size(); i++) {
+            SCMTrait<?> trait = traits.get(i);
+            if (trait instanceof WildcardSCMHeadFilterTrait) {
+                WildcardSCMHeadFilterTrait existing = (WildcardSCMHeadFilterTrait) trait;
+                if ("*".equals(includes) && "".equals(existing.getExcludes())) {
+                    traits.remove(i);
+                } else {
+                    traits.set(i, new WildcardSCMHeadFilterTrait(includes, existing.getExcludes()));
+                }
+                return;
+            }
+        }
+        if (!"*".equals(includes)) {
+            traits.add(new WildcardSCMHeadFilterTrait(includes, ""));
+        }
     }
 
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
+    @NonNull
     public String getExcludes() {
-        return excludes;
+        for (SCMTrait<?> trait : traits) {
+            if (trait instanceof WildcardSCMHeadFilterTrait) {
+                return ((WildcardSCMHeadFilterTrait) trait).getExcludes();
+            }
+        }
+        return "";
     }
 
+    @Deprecated
+    @Restricted(NoExternalUse.class)
+    @RestrictedSince("2.2.0")
     @DataBoundSetter
-    public void setExcludes(String excludes) {
-        this.excludes = excludes;
+    public void setExcludes(@NonNull String excludes) {
+        for (int i = 0; i < traits.size(); i++) {
+            SCMTrait<?> trait = traits.get(i);
+            if (trait instanceof WildcardSCMHeadFilterTrait) {
+                WildcardSCMHeadFilterTrait existing = (WildcardSCMHeadFilterTrait) trait;
+                if ("*".equals(existing.getIncludes()) && "".equals(excludes)) {
+                    traits.remove(i);
+                } else {
+                    traits.set(i, new WildcardSCMHeadFilterTrait(existing.getIncludes(), excludes));
+                }
+                return;
+            }
+        }
+        if (!"".equals(excludes)) {
+            traits.add(new WildcardSCMHeadFilterTrait("*", excludes));
+        }
     }
+
 
     @NonNull
     @Override
     protected String id() {
-        return bitbucketUrl() + "::" + repoOwner;
+        return serverUrl + "::" + repoOwner;
     }
 
     @Override
@@ -202,62 +449,44 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             return;
         }
         StandardUsernamePasswordCredentials credentials = BitbucketCredentials.lookupCredentials(
-                bitbucketServerUrl,
+                serverUrl,
                 observer.getContext(),
                 credentialsId,
                 StandardUsernamePasswordCredentials.class
         );
 
         if (credentials == null) {
-            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", bitbucketUrl());
+            listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n", serverUrl);
         } else {
-            listener.getLogger().format("Connecting to %s using %s%n", bitbucketUrl(), CredentialsNameProvider.name(credentials));
+            listener.getLogger()
+                    .format("Connecting to %s using %s%n", serverUrl, CredentialsNameProvider.name(credentials));
         }
-        List<? extends BitbucketRepository> repositories;
-        BitbucketApi bitbucket = BitbucketApiFactory.newInstance(bitbucketServerUrl, credentials, repoOwner, null);
-        BitbucketTeam team = bitbucket.getTeam();
-        if (team != null) {
-            // Navigate repositories of the team
-            listener.getLogger().format("Looking up repositories of team %s%n", repoOwner);
-            repositories = bitbucket.getRepositories();
-        } else {
-            // Navigate the repositories of the repoOwner as a user
-            listener.getLogger().format("Looking up repositories of user %s%n", repoOwner);
-            repositories = bitbucket.getRepositories(UserRoleInRepository.OWNER);
-        }
-        for (BitbucketRepository repo : repositories) {
-            checkInterrupt();
-            add(listener, observer, repo);
-        }
-    }
+        try (final BitbucketSCMNavigatorRequest request = new BitbucketSCMNavigatorContext().withTraits(traits)
+                .newRequest(this, observer)) {
+            SourceFactory sourceFactory = new SourceFactory(request);
+            WitnessImpl witness = new WitnessImpl(listener);
 
-    private void add(TaskListener listener, SCMSourceObserver observer, BitbucketRepository repo)
-            throws InterruptedException, IOException {
-        String name = repo.getRepositoryName();
-        if (!Pattern.compile(pattern).matcher(name).matches()) {
-            listener.getLogger().format("Ignoring %s%n", name);
-            return;
+            BitbucketApi bitbucket = BitbucketApiFactory.newInstance(serverUrl, credentials, repoOwner, null);
+            BitbucketTeam team = bitbucket.getTeam();
+            List<? extends BitbucketRepository> repositories;
+            if (team != null) {
+                // Navigate repositories of the team
+                listener.getLogger().format("Looking up repositories of team %s%n", repoOwner);
+                repositories = bitbucket.getRepositories();
+            } else {
+                // Navigate the repositories of the repoOwner as a user
+                listener.getLogger().format("Looking up repositories of user %s%n", repoOwner);
+                repositories = bitbucket.getRepositories(UserRoleInRepository.OWNER);
+            }
+            for (BitbucketRepository repo : repositories) {
+                if (request.process(repo.getRepositoryName(), sourceFactory, null, witness)) {
+                    listener.getLogger().format(
+                            "%d repositories were processed (query completed)%n", witness.getCount()
+                    );
+                }
+            }
+            listener.getLogger().format("%d repositories were processed%n", witness.getCount());
         }
-        listener.getLogger().format("Proposing %s%n", name);
-        checkInterrupt();
-        SCMSourceObserver.ProjectObserver projectObserver = observer.observe(name);
-        BitbucketSCMSource scmSource = new BitbucketSCMSource(
-                getId() + "::" + name,
-                repoOwner,
-                name
-        );
-        scmSource.setCredentialsId(credentialsId);
-        scmSource.setCheckoutCredentialsId(checkoutCredentialsId);
-        scmSource.setAutoRegisterHook(isAutoRegisterHooks());
-        scmSource.setBitbucketServerUrl(bitbucketServerUrl);
-        scmSource.setIncludes(includes);
-        scmSource.setExcludes(excludes);
-        projectObserver.addSource(scmSource);
-        projectObserver.complete();
-    }
-
-    private String bitbucketUrl() {
-        return StringUtils.defaultIfBlank(bitbucketServerUrl, "https://bitbucket.org");
     }
 
     @NonNull
@@ -270,13 +499,12 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         listener.getLogger().printf("Looking up team details of %s...%n", getRepoOwner());
         List<Action> result = new ArrayList<>();
         StandardUsernamePasswordCredentials credentials = BitbucketCredentials.lookupCredentials(
-                bitbucketServerUrl,
+                serverUrl,
                 owner,
                 credentialsId,
                 StandardUsernamePasswordCredentials.class
         );
 
-        String serverUrl = StringUtils.removeEnd(bitbucketUrl(), "/");
         if (credentials == null) {
             listener.getLogger().format("Connecting to %s with no credentials, anonymous access%n",
                     serverUrl);
@@ -285,7 +513,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                     serverUrl,
                     CredentialsNameProvider.name(credentials));
         }
-        BitbucketApi bitbucket = BitbucketApiFactory.newInstance(bitbucketServerUrl, credentials, repoOwner, null);
+        BitbucketApi bitbucket = BitbucketApiFactory.newInstance(serverUrl, credentials, repoOwner, null);
         BitbucketTeam team = bitbucket.getTeam();
         if (team != null) {
             String teamUrl =
@@ -353,7 +581,15 @@ public class BitbucketSCMNavigator extends SCMNavigator {
 
         @Override
         public SCMNavigator newInstance(String name) {
-            return new BitbucketSCMNavigator(name, "", BitbucketSCMSource.DescriptorImpl.SAME);
+            return new BitbucketSCMNavigator(StringUtils.defaultString(name));
+        }
+
+        public boolean isServerUrlSelectable() {
+            return BitbucketEndpointConfiguration.get().isEndpointSelectable();
+        }
+
+        public ListBoxModel doFillServerUrlItems() {
+            return BitbucketEndpointConfiguration.get().getEndpointItems();
         }
 
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
@@ -364,28 +600,118 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             }
         }
 
+        @Restricted(DoNotUse.class)
+        @Deprecated
         public FormValidation doCheckBitbucketServerUrl(@QueryParameter String bitbucketServerUrl) {
             return BitbucketSCMSource.DescriptorImpl.doCheckBitbucketServerUrl(bitbucketServerUrl);
         }
 
-        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
-            StandardListBoxModel result = new StandardListBoxModel();
-            result.withEmptySelection();
-            return BitbucketCredentials.fillCredentials(bitbucketServerUrl, context, result);
+        public static FormValidation doCheckServerUrl(@QueryParameter String value) {
+            if (BitbucketEndpointConfiguration.get().findEndpoint(value) == null) {
+                return FormValidation.error("Unregistered Server: " + value);
+            }
+            return FormValidation.ok();
         }
 
-        public ListBoxModel doFillCheckoutCredentialsIdItems(@AncestorInPath SCMSourceOwner context, @QueryParameter String bitbucketServerUrl) {
+
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath SCMSourceOwner context,
+                                                     @QueryParameter String bitbucketServerUrl) {
+            StandardListBoxModel result = new StandardListBoxModel();
+            result.withEmptySelection();
+            result.includeMatchingAs(
+                    context instanceof Queue.Task
+                            ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                            : ACL.SYSTEM,
+                    context,
+                    StandardUsernameCredentials.class,
+                    URIRequirementBuilder.fromUri(bitbucketServerUrl).build(),
+                    CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardUsernamePasswordCredentials.class))
+            );
+            return result;
+        }
+
+        public List<NamedArrayList<? extends SCMTraitDescriptor<?>>> getTraitsDescriptorLists() {
+            List<SCMTraitDescriptor<?>> all = new ArrayList<>();
+            all.addAll(
+                    SCMNavigatorTrait._for(this, BitbucketSCMNavigatorContext.class, BitbucketSCMSourceBuilder.class));
+            all.addAll(SCMSourceTrait._for(BitbucketSCMSourceContext.class, null));
+            all.addAll(SCMSourceTrait._for(null, BitbucketGitSCMBuilder.class));
+            all.addAll(SCMSourceTrait._for(null, BitbucketHgSCMBuilder.class));
+            Set<SCMTraitDescriptor<?>> dedup = new HashSet<>();
+            for (Iterator<SCMTraitDescriptor<?>> iterator = all.iterator(); iterator.hasNext(); ) {
+                SCMTraitDescriptor<?> d = iterator.next();
+                if (dedup.contains(d)
+                        || d instanceof MercurialBrowserSCMSourceTrait.DescriptorImpl
+                        || d instanceof GitBrowserSCMSourceTrait.DescriptorImpl) {
+                    // remove any we have seen already and ban the browser configuration as it will always be bitbucket
+                    iterator.remove();
+                } else {
+                    dedup.add(d);
+                }
+            }
+            List<NamedArrayList<? extends SCMTraitDescriptor<?>>> result = new ArrayList<>();
+            NamedArrayList.select(all, "Repositories", new NamedArrayList.Predicate<SCMTraitDescriptor<?>>() {
+                        @Override
+                        public boolean test(SCMTraitDescriptor<?> scmTraitDescriptor) {
+                            return scmTraitDescriptor instanceof SCMNavigatorTraitDescriptor;
+                        }
+                    },
+                    true, result);
+            NamedArrayList.select(all, "Within repository", NamedArrayList
+                            .anyOf(NamedArrayList.withAnnotation(Discovery.class),
+                                    NamedArrayList.withAnnotation(Selection.class)),
+                    true, result);
+            int insertionPoint = result.size();
+            NamedArrayList.select(all, "Git", new NamedArrayList.Predicate<SCMTraitDescriptor<?>>() {
+                @Override
+                public boolean test(SCMTraitDescriptor<?> d) {
+                    return GitSCM.class.isAssignableFrom(d.getScmClass());
+                }
+            }, true, result);
+            NamedArrayList.select(all, "Mercurial", new NamedArrayList.Predicate<SCMTraitDescriptor<?>>() {
+                @Override
+                public boolean test(SCMTraitDescriptor<?> d) {
+                    return MercurialSCM.class.isAssignableFrom(d.getScmClass());
+                }
+            }, true, result);
+            NamedArrayList.select(all, "Additional", null, true, result, insertionPoint);
+            return result;
+        }
+
+        public List<SCMTrait<?>> getTraitsDefaults() {
+            return Arrays.<SCMTrait<?>>asList(
+                    new BranchDiscoveryTrait(true, false),
+                    new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE)),
+                    new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE),
+                            new ForkPullRequestDiscoveryTrait.TrustTeamForks())
+            );
+        }
+
+        @Restricted(DoNotUse.class)
+        @Deprecated
+        public ListBoxModel doFillCheckoutCredentialsIdItems(@AncestorInPath SCMSourceOwner context,
+                                                             @QueryParameter String bitbucketServerUrl) {
             StandardListBoxModel result = new StandardListBoxModel();
             result.add("- same as scan credentials -", BitbucketSCMSource.DescriptorImpl.SAME);
             result.add("- anonymous -", BitbucketSCMSource.DescriptorImpl.ANONYMOUS);
-            return BitbucketCredentials.fillCheckoutCredentials(bitbucketServerUrl, context, result);
+            result.includeMatchingAs(
+                    context instanceof Queue.Task
+                            ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                            : ACL.SYSTEM,
+                    context,
+                    StandardCredentials.class,
+                    URIRequirementBuilder.fromUri(bitbucketServerUrl).build(),
+                    CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardCredentials.class))
+            );
+            return result;
         }
 
         @NonNull
         @Override
         protected SCMSourceCategory[] createCategories() {
             return new SCMSourceCategory[]{
-                    new UncategorizedSCMSourceCategory(Messages._BitbucketSCMNavigator_UncategorizedSCMSourceCategory_DisplayName())
+                    new UncategorizedSCMSourceCategory(
+                            Messages._BitbucketSCMNavigator_UncategorizedSCMSourceCategory_DisplayName())
             };
         }
 
@@ -491,6 +817,50 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                     new Icon("icon-bitbucket-branch icon-xlg",
                             "plugin/cloudbees-bitbucket-branch-sourcee/images/48x48/bitbucket-branch.png",
                             Icon.ICON_XLARGE_STYLE));
+        }
+    }
+
+    private static class WitnessImpl implements SCMNavigatorRequest.Witness {
+        private int count;
+        private final TaskListener listener;
+
+        public WitnessImpl(TaskListener listener) {
+            this.listener = listener;
+        }
+
+        @Override
+        public void record(@NonNull String name, boolean isMatch) {
+            if (isMatch) {
+                listener.getLogger().format("Proposing %s%n", name);
+                count++;
+            } else {
+                listener.getLogger().format("Ignoring %s%n", name);
+            }
+        }
+
+        public int getCount() {
+            return count;
+        }
+    }
+
+    private class SourceFactory implements SCMNavigatorRequest.SourceLambda {
+        private final BitbucketSCMNavigatorRequest request;
+
+        public SourceFactory(BitbucketSCMNavigatorRequest request) {
+            this.request = request;
+        }
+
+        @NonNull
+        @Override
+        public SCMSource create(@NonNull String projectName) throws IOException, InterruptedException {
+            return new BitbucketSCMSourceBuilder(
+                    getId() + "::" + projectName,
+                    serverUrl,
+                    credentialsId,
+                    repoOwner,
+                    projectName)
+                    .withRequest(request)
+                    .build();
         }
     }
 }

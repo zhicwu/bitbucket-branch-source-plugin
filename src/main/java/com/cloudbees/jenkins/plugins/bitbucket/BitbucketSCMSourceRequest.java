@@ -66,6 +66,10 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
      */
     private final boolean fetchForkPRs;
     /**
+     * {@code true} if all pull requests from public repositories should be ignored.
+     */
+    private final boolean skipPublicPRs;
+    /**
      * The {@link ChangeRequestCheckoutStrategy} to create for each origin pull request.
      */
     @NonNull
@@ -119,7 +123,7 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
      * @param context  the context.
      * @param listener the listener.
      */
-    protected BitbucketSCMSourceRequest(@NonNull BitbucketSCMSource source,
+    protected BitbucketSCMSourceRequest(@NonNull final BitbucketSCMSource source,
                                         @NonNull BitbucketSCMSourceContext context,
                                         @CheckForNull TaskListener listener) {
         super(source, context, listener);
@@ -127,6 +131,7 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
         fetchTags = context.wantTags();
         fetchOriginPRs = context.wantOriginPRs();
         fetchForkPRs = context.wantForkPRs();
+        skipPublicPRs = context.skipPublicPRs();
         originPRStrategies = fetchOriginPRs && !context.originPRStrategies().isEmpty()
                 ? Collections.unmodifiableSet(EnumSet.copyOf(context.originPRStrategies()))
                 : Collections.<ChangeRequestCheckoutStrategy>emptySet();
@@ -208,6 +213,15 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
      */
     public final boolean isFetchForkPRs() {
         return fetchForkPRs;
+    }
+
+    /**
+     * Returns {@code true} if pull requests from public repositories should be skipped.
+     *
+     * @return {@code true} if pull requests from public repositories should be skipped.
+     */
+    public final boolean isSkipPublicPRs() {
+        return skipPublicPRs;
     }
 
     /**
