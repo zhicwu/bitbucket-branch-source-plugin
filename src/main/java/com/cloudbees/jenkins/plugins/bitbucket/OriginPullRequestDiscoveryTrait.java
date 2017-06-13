@@ -26,8 +26,8 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.ListBoxModel;
-import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Set;
 import jenkins.scm.api.SCMHeadCategory;
 import jenkins.scm.api.SCMHeadOrigin;
 import jenkins.scm.api.SCMRevision;
@@ -72,7 +72,7 @@ public class OriginPullRequestDiscoveryTrait extends SCMSourceTrait {
      *
      * @param strategies the {@link ChangeRequestCheckoutStrategy} instances.
      */
-    public OriginPullRequestDiscoveryTrait(EnumSet<ChangeRequestCheckoutStrategy> strategies) {
+    public OriginPullRequestDiscoveryTrait(Set<ChangeRequestCheckoutStrategy> strategies) {
         this((strategies.contains(ChangeRequestCheckoutStrategy.MERGE) ? 1 : 0)
                 + (strategies.contains(ChangeRequestCheckoutStrategy.HEAD) ? 2 : 0));
     }
@@ -87,6 +87,25 @@ public class OriginPullRequestDiscoveryTrait extends SCMSourceTrait {
     }
 
     /**
+     * Returns the strategies.
+     *
+     * @return the strategies.
+     */
+    @NonNull
+    public Set<ChangeRequestCheckoutStrategy> getStrategies() {
+        switch (strategyId) {
+            case 1:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.MERGE);
+            case 2:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.HEAD);
+            case 3:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.HEAD, ChangeRequestCheckoutStrategy.MERGE);
+            default:
+                return EnumSet.noneOf(ChangeRequestCheckoutStrategy.class);
+        }
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -94,12 +113,7 @@ public class OriginPullRequestDiscoveryTrait extends SCMSourceTrait {
         BitbucketSCMSourceContext ctx = (BitbucketSCMSourceContext) context;
         ctx.wantOriginPRs(true);
         ctx.withAuthority(new OriginChangeRequestSCMHeadAuthority());
-        if ((strategyId & 1) != 0) {
-            ctx.withOriginPRStrategies(Collections.singleton(ChangeRequestCheckoutStrategy.MERGE));
-        }
-        if ((strategyId & 2) != 0) {
-            ctx.withOriginPRStrategies(Collections.singleton(ChangeRequestCheckoutStrategy.HEAD));
-        }
+        ctx.withOriginPRStrategies(getStrategies());
     }
 
     /**

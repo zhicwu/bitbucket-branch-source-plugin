@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import jenkins.scm.api.SCMHeadCategory;
 import jenkins.scm.api.SCMHeadOrigin;
 import jenkins.scm.api.SCMRevision;
@@ -86,7 +87,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
      * @param strategies the {@link ChangeRequestCheckoutStrategy} instances.
      * @param trust      the authority.
      */
-    public ForkPullRequestDiscoveryTrait(@NonNull EnumSet<ChangeRequestCheckoutStrategy> strategies,
+    public ForkPullRequestDiscoveryTrait(@NonNull Set<ChangeRequestCheckoutStrategy> strategies,
                                          @NonNull SCMHeadAuthority<? super BitbucketSCMSourceRequest, ? extends
                                                  ChangeRequestSCMHead2, ? extends SCMRevision> trust) {
         this((strategies.contains(ChangeRequestCheckoutStrategy.MERGE) ? 1 : 0)
@@ -100,6 +101,26 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
      */
     public int getStrategyId() {
         return strategyId;
+    }
+
+
+    /**
+     * Returns the strategies.
+     *
+     * @return the strategies.
+     */
+    @NonNull
+    public Set<ChangeRequestCheckoutStrategy> getStrategies() {
+        switch (strategyId) {
+            case 1:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.MERGE);
+            case 2:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.HEAD);
+            case 3:
+                return EnumSet.of(ChangeRequestCheckoutStrategy.HEAD, ChangeRequestCheckoutStrategy.MERGE);
+            default:
+                return EnumSet.noneOf(ChangeRequestCheckoutStrategy.class);
+        }
     }
 
     /**
@@ -121,12 +142,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
         BitbucketSCMSourceContext ctx = (BitbucketSCMSourceContext) context;
         ctx.wantForkPRs(true);
         ctx.withAuthority(trust);
-        if ((strategyId & 1) != 0) {
-            ctx.withForkPRStrategies(Collections.singleton(ChangeRequestCheckoutStrategy.MERGE));
-        }
-        if ((strategyId & 2) != 0) {
-            ctx.withForkPRStrategies(Collections.singleton(ChangeRequestCheckoutStrategy.HEAD));
-        }
+        ctx.withForkPRStrategies(getStrategies());
     }
 
     /**

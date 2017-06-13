@@ -72,7 +72,8 @@ public class SSHCheckoutTrait extends SCMSourceTrait {
      * Constructor.
      *
      * @param credentialsId the {@link SSHUserPrivateKey#getId()} of the credentials to use or
-     *                      {@link BitbucketSCMSource.DescriptorImpl#ANONYMOUS} to
+     *                      {@link BitbucketSCMSource.DescriptorImpl#ANONYMOUS} to defer to the agent configured
+     *                      credentials (typically anonymous but not always)
      */
     @DataBoundConstructor
     public SSHCheckoutTrait(@CheckForNull String credentialsId) {
