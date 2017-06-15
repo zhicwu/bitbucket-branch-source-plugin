@@ -24,6 +24,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.branch.BranchSource;
 import jenkins.plugins.git.AbstractGitSCMSource;
+import jenkins.plugins.git.GitSCMSourceDefaults;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMHeadOrigin;
 import jenkins.scm.api.SCMRevision;
@@ -39,6 +40,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.Mockito;
 
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -55,7 +57,7 @@ public class BitbucketGitSCMBuilderTest {
     @Before
     public void setUp() throws IOException {
         owner = j.createProject(WorkflowMultiBranchProject.class);
-        source = new BitbucketSCMSource("test", "tester", "test-repo");
+        source = new BitbucketSCMSource( "tester", "test-repo");
         owner.setSourcesList(Collections.singletonList(new BranchSource(source)));
         source.setOwner(owner);
         SystemCredentialsProvider.getInstance().setDomainCredentialsMap(Collections.singletonMap(Domain.global(),
@@ -115,10 +117,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -172,10 +175,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -229,10 +233,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -284,7 +289,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -328,7 +333,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -372,7 +377,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -419,10 +424,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class)
+        ));
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -478,10 +484,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class)
+        ));
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -536,10 +543,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class)
+        ));
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -592,7 +600,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -637,7 +645,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -682,7 +690,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
 
@@ -733,10 +741,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -794,10 +803,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -855,10 +865,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -912,7 +923,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -958,7 +969,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -1004,7 +1015,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -1055,10 +1066,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -1118,10 +1130,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -1180,10 +1193,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(BuildChooserSetting.class));
-        BuildChooserSetting chooser = (BuildChooserSetting) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
         AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
                 (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
@@ -1238,7 +1252,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -1285,7 +1299,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
     @Test
@@ -1332,7 +1346,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(0));
+        assertThat(actual.getExtensions(), contains(instanceOf(GitSCMSourceDefaults.class)));
     }
 
 
@@ -1397,7 +1411,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -1475,7 +1493,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -1553,7 +1575,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -1627,10 +1653,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(MergeWithGitSCMExtension.class));
-        MergeWithGitSCMExtension merge = (MergeWithGitSCMExtension) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
+        MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));
         assertThat(merge.getBaseHash(), is(nullValue()));
     }
@@ -1692,10 +1719,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(MergeWithGitSCMExtension.class));
-        MergeWithGitSCMExtension merge = (MergeWithGitSCMExtension) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
+        MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));
         assertThat(merge.getBaseHash(), is(nullValue()));
     }
@@ -1757,10 +1785,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
-        GitSCMExtension extension = actual.getExtensions().get(0);
-        assertThat(extension, instanceOf(MergeWithGitSCMExtension.class));
-        MergeWithGitSCMExtension merge = (MergeWithGitSCMExtension) extension;
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(GitSCMSourceDefaults.class),
+                instanceOf(MergeWithGitSCMExtension.class)
+        ));
+        MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));
         assertThat(merge.getBaseHash(), is(nullValue()));
     }
@@ -1827,7 +1856,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -1907,7 +1940,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -1986,7 +2023,11 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(2));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
         assertThat(chooser, notNullValue());
         assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
@@ -2061,7 +2102,10 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge, notNullValue());
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));
@@ -2126,7 +2170,10 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge, notNullValue());
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));
@@ -2191,7 +2238,10 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/upstream/test-branch"));
         assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
         assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
-        assertThat(actual.getExtensions(), hasSize(1));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(MergeWithGitSCMExtension.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
         MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
         assertThat(merge, notNullValue());
         assertThat(merge.getBaseName(), is("remotes/upstream/test-branch"));

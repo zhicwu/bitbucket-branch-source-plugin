@@ -2,6 +2,9 @@ package integration;
 
 import com.cloudbees.jenkins.plugins.bitbucket.BitbucketMockApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource;
+import com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait;
+import com.cloudbees.jenkins.plugins.bitbucket.ForkPullRequestDiscoveryTrait;
+import com.cloudbees.jenkins.plugins.bitbucket.OriginPullRequestDiscoveryTrait;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
@@ -12,7 +15,9 @@ import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import hudson.model.Result;
 import hudson.model.TopLevelItem;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
@@ -20,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import jenkins.branch.Branch;
 import jenkins.branch.BranchSource;
 import jenkins.plugins.git.GitSampleRepoRule;
+import jenkins.scm.api.mixin.ChangeRequestCheckoutStrategy;
 import org.apache.commons.io.FileUtils;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject;
@@ -143,7 +149,16 @@ public class ScanningFailuresTest {
 
         BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
-        mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
+        BitbucketSCMSource source = new BitbucketSCMSource("bob", "foo");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
+        mp.getSourcesList().add(new BranchSource(source));
 
         mp.scheduleBuild2(0).getFuture().get();
         assertThat(mp.getIndexing().getResult(), is(Result.SUCCESS));
@@ -209,7 +224,16 @@ public class ScanningFailuresTest {
 
         BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
-        mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
+        BitbucketSCMSource source = new BitbucketSCMSource("bob", "foo");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
+        mp.getSourcesList().add(new BranchSource(source));
 
         mp.scheduleBuild2(0).getFuture().get();
         assertThat(mp.getIndexing().getResult(), is(Result.SUCCESS));
@@ -267,7 +291,16 @@ public class ScanningFailuresTest {
 
         BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
-        mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
+        BitbucketSCMSource source = new BitbucketSCMSource("bob", "foo");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
+        mp.getSourcesList().add(new BranchSource(source));
 
         mp.scheduleBuild2(0).getFuture().get();
         assertThat(mp.getIndexing().getResult(), is(Result.SUCCESS));
@@ -329,7 +362,16 @@ public class ScanningFailuresTest {
 
         BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, api);
         WorkflowMultiBranchProject mp = j.jenkins.createProject(WorkflowMultiBranchProject.class, "smokes");
-        mp.getSourcesList().add(new BranchSource(new BitbucketSCMSource(null, "bob", "foo")));
+        BitbucketSCMSource source = new BitbucketSCMSource("bob", "foo");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
+        mp.getSourcesList().add(new BranchSource(source));
 
         mp.scheduleBuild2(0).getFuture().get();
         assertThat(mp.getIndexing().getResult(), is(Result.SUCCESS));

@@ -51,8 +51,8 @@
 
   <properties>
     <jenkins.version>1.642.3</jenkins.version>
-    <scm-api.version>2.2.0-20170612.200107-11</scm-api.version>
-    <git.version>3.4.0-20170612.203958-2</git.version>
+    <scm-api.version>2.2.0-SNAPSHOT</scm-api.version>
+    <git.version>3.4.0-SNAPSHOT</git.version>
   </properties>
 
   <scm>
@@ -90,7 +90,7 @@
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>mercurial</artifactId>
-      <version>2.0-20170612.200544-1</version>
+      <version>2.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.codehaus.jackson</groupId>
@@ -105,7 +105,7 @@
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>branch-api</artifactId>
-      <version>2.0.11-20170612.201016-1</version>
+      <version>2.0.11-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
     <dependency>

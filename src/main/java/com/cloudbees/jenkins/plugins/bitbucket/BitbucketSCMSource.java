@@ -231,18 +231,31 @@ public class BitbucketSCMSource extends SCMSource {
     /**
      * Constructor.
      *
-     * @param id         the id.
      * @param repoOwner  the repository owner.
      * @param repository the repository name.
+     * @since 2.2.0
      */
     @DataBoundConstructor
-    public BitbucketSCMSource(@CheckForNull String id, @NonNull String repoOwner, @NonNull String repository) {
-        super(id);
+    public BitbucketSCMSource(@NonNull String repoOwner, @NonNull String repository) {
         this.serverUrl = BitbucketCloudEndpoint.SERVER_URL;
         this.repoOwner = repoOwner;
         this.repository = repository;
         this.traits = new ArrayList<>();
-        this.traits.add(new BranchDiscoveryTrait(true, true));
+    }
+
+    /**
+     * Legacy Constructor.
+     *
+     * @param id         the id.
+     * @param repoOwner  the repository owner.
+     * @param repository the repository name.
+     * @deprecated use {@link #BitbucketSCMSource(String, String)} and {@link #setId(String)}
+     */
+    @Deprecated
+    public BitbucketSCMSource(@CheckForNull String id, @NonNull String repoOwner, @NonNull String repository) {
+        this(repoOwner, repository);
+        setId(id);
+        traits.add(new BranchDiscoveryTrait(true, true));
         traits.add(new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE)));
         traits.add(new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE),
                 new ForkPullRequestDiscoveryTrait.TrustTeamForks()));

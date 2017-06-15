@@ -33,6 +33,8 @@ import hudson.plugins.mercurial.MercurialSCM;
 import hudson.scm.SCM;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import jenkins.plugins.git.AbstractGitSCMSource.SCMRevisionImpl;
 import jenkins.scm.api.SCMHead;
@@ -41,6 +43,7 @@ import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceCriteria;
 import jenkins.scm.api.SCMSourceOwner;
+import jenkins.scm.api.mixin.ChangeRequestCheckoutStrategy;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -160,7 +163,15 @@ public class BranchScanningTest {
 
         BitbucketMockApiFactory.add(BitbucketCloudEndpoint.SERVER_URL, mock);
 
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        BitbucketSCMSource source = new BitbucketSCMSource("amuniz", "test-repos");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
         source.setOwner(getSCMSourceOwnerMock());
         return source;
     }

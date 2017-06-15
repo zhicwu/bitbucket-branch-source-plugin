@@ -393,14 +393,14 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__instance__when__setTraits_empty__then__traitsEmpty() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Collections.<SCMSourceTrait>emptyList());
         assertThat(instance.getTraits(), is(Collections.<SCMSourceTrait>emptyList()));
     }
 
     @Test
     public void given__instance__when__setTraits__then__traitsSet() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(new BranchDiscoveryTrait(1),
                 new WebhookRegistrationTrait(WebhookRegistration.DISABLE)));
         assertThat(instance.getTraits(),
@@ -420,35 +420,35 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__instance__when__setServerUrl__then__urlNormalized() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setServerUrl("https://bitbucket.org:443/foo/../bar/../");
         assertThat(instance.getServerUrl(), is("https://bitbucket.org"));
     }
 
     @Test
     public void given__instance__when__setCredentials_empty__then__credentials_null() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource( "testing", "test-repo");
         instance.setCredentialsId("");
         assertThat(instance.getCredentialsId(), is(nullValue()));
     }
 
     @Test
     public void given__instance__when__setCredentials_null__then__credentials_null() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setCredentialsId("");
         assertThat(instance.getCredentialsId(), is(nullValue()));
     }
 
     @Test
     public void given__instance__when__setCredentials__then__credentials_set() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setCredentialsId("test");
         assertThat(instance.getCredentialsId(), is("test"));
     }
 
     @Test
     public void given__instance__when__setBitbucketServerUrl_null__then__cloudUrlApplied() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setBitbucketServerUrl(null);
         assertThat(instance.getServerUrl(), is("https://bitbucket.org"));
         assertThat(instance.getBitbucketServerUrl(), is(nullValue()));
@@ -456,7 +456,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__instance__when__setBitbucketServerUrl_value__then__valueApplied() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setBitbucketServerUrl("https://bitbucket.test");
         assertThat(instance.getServerUrl(), is("https://bitbucket.test"));
         assertThat(instance.getBitbucketServerUrl(), is("https://bitbucket.test"));
@@ -464,7 +464,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__instance__when__setBitbucketServerUrl_value__then__valueNormalized() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setBitbucketServerUrl("https://bitbucket.test/foo/bar/../../");
         assertThat(instance.getServerUrl(), is("https://bitbucket.test"));
         assertThat(instance.getBitbucketServerUrl(), is("https://bitbucket.test"));
@@ -472,7 +472,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__instance__when__setBitbucketServerUrl_cloudUrl__then__valueApplied() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setBitbucketServerUrl("https://bitbucket.org");
         assertThat(instance.getServerUrl(), is("https://bitbucket.org"));
         assertThat(instance.getBitbucketServerUrl(), is(nullValue()));
@@ -480,7 +480,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setAutoRegisterHook_true__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new SSHCheckoutTrait("dummy")));
@@ -495,7 +495,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setAutoRegisterHook_changes__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(new BranchDiscoveryTrait(true, false),
                 new SSHCheckoutTrait("dummy")));
         assertThat(instance.isAutoRegisterHook(), is(true));
@@ -510,7 +510,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setAutoRegisterHook_false__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(new BranchDiscoveryTrait(true, false),
                 new SSHCheckoutTrait("dummy"), new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
         assertThat(instance.isAutoRegisterHook(), is(true));
@@ -525,7 +525,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_SAME__then__noTraitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -538,7 +538,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_SAME__then__traitRemoved() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM),
@@ -555,7 +555,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_null__then__noTraitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -568,7 +568,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_null__then__traitRemoved() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM),
@@ -585,7 +585,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_value__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -601,7 +601,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_value__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM),
@@ -621,7 +621,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_ANONYMOUS__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -637,7 +637,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode__when__setCheckoutCredentials_ANONYMOUS__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM),
@@ -657,7 +657,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutExcludes__when__setIncludes_default__then__traitRemoved() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", ""),
@@ -679,7 +679,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutExcludes__when__setIncludes_value__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", ""),
@@ -703,7 +703,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutTrait__when__setIncludes_value__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -724,7 +724,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withExcludes__when__setIncludes_default__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", "feature/ignore"),
@@ -748,7 +748,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withExcludes__when__setIncludes_value__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", "feature/ignore"),
@@ -772,7 +772,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutIncludes__when__setExcludes_default__then__traitRemoved() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("*", "feature/ignore"),
@@ -794,7 +794,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutIncludes__when__setExcludes_value__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("*", "feature/ignore"),
@@ -818,7 +818,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withoutTrait__when__setExcludes_value__then__traitAdded() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WebhookRegistrationTrait(WebhookRegistration.SYSTEM)));
@@ -839,7 +839,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withIncludes__when__setExcludes_default__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", "feature/ignore"),
@@ -863,7 +863,7 @@ public class BitbucketSCMSourceTest {
 
     @Test
     public void given__legacyCode_withIncludes__when__setExcludes_value__then__traitUpdated() {
-        BitbucketSCMSource instance = new BitbucketSCMSource("test", "testing", "test-repo");
+        BitbucketSCMSource instance = new BitbucketSCMSource("testing", "test-repo");
         instance.setTraits(Arrays.asList(
                 new BranchDiscoveryTrait(true, false),
                 new WildcardSCMHeadFilterTrait("feature/*", ""),

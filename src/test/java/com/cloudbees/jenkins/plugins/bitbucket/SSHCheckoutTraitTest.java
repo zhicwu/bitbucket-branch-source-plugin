@@ -34,7 +34,7 @@ public class SSHCheckoutTraitTest {
     public void given__sshCheckoutWithCredentials__when__decoratingGit__then__credentialsApplied() throws Exception {
         SSHCheckoutTrait instance = new SSHCheckoutTrait("keyId");
         BitbucketGitSCMBuilder probe =
-                new BitbucketGitSCMBuilder(new BitbucketSCMSource(null, "example", "does-not-exist"),
+                new BitbucketGitSCMBuilder(new BitbucketSCMSource("example", "does-not-exist"),
                         new BranchSCMHead("master", BitbucketRepositoryType.GIT), null, "scanId");
         assumeThat(probe.credentialsId(), is("scanId"));
         instance.decorateBuilder(probe);
@@ -45,7 +45,7 @@ public class SSHCheckoutTraitTest {
     public void given__sshCheckoutWithAgentKey__when__decoratingGit__then__useAgentKeyApplied() throws Exception {
         SSHCheckoutTrait instance = new SSHCheckoutTrait(null);
         BitbucketGitSCMBuilder probe =
-                new BitbucketGitSCMBuilder(new BitbucketSCMSource(null, "example", "does-not-exist"),
+                new BitbucketGitSCMBuilder(new BitbucketSCMSource( "example", "does-not-exist"),
                         new BranchSCMHead("master", BitbucketRepositoryType.GIT), null, "scanId");
         assumeThat(probe.credentialsId(), is("scanId"));
         instance.decorateBuilder(probe);
@@ -56,7 +56,7 @@ public class SSHCheckoutTraitTest {
     public void given__sshCheckoutWithCredentials__when__decoratingHg__then__credentialsApplied() throws Exception {
         SSHCheckoutTrait instance = new SSHCheckoutTrait("keyId");
         BitbucketHgSCMBuilder probe =
-                new BitbucketHgSCMBuilder(new BitbucketSCMSource(null, "example", "does-not-exist"),
+                new BitbucketHgSCMBuilder(new BitbucketSCMSource( "example", "does-not-exist"),
                         new BranchSCMHead("master", BitbucketRepositoryType.MERCURIAL), null, "scanId");
         assumeThat(probe.credentialsId(), is("scanId"));
         instance.decorateBuilder(probe);
@@ -67,7 +67,7 @@ public class SSHCheckoutTraitTest {
     public void given__sshCheckoutWithAgentKey__when__decoratingHg__then__useAgentKeyApplied() throws Exception {
         SSHCheckoutTrait instance = new SSHCheckoutTrait(null);
         BitbucketHgSCMBuilder probe =
-                new BitbucketHgSCMBuilder(new BitbucketSCMSource(null, "example", "does-not-exist"),
+                new BitbucketHgSCMBuilder(new BitbucketSCMSource( "example", "does-not-exist"),
                         new BranchSCMHead("master", BitbucketRepositoryType.MERCURIAL), null, "scanId");
         assumeThat(probe.credentialsId(), is("scanId"));
         instance.decorateBuilder(probe);

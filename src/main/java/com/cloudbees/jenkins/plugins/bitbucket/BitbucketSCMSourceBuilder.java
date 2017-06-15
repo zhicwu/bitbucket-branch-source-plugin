@@ -116,7 +116,8 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
     @NonNull
     @Override
     public BitbucketSCMSource build() {
-        BitbucketSCMSource result = new BitbucketSCMSource(id(), repoOwner(), projectName());
+        BitbucketSCMSource result = new BitbucketSCMSource(repoOwner(), projectName());
+        result.setId(id());
         result.setServerUrl(serverUrl());
         result.setCredentialsId(credentialsId());
         result.setTraits(traits());

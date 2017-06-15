@@ -44,6 +44,8 @@ import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import jenkins.branch.Branch;
 import jenkins.branch.BranchProjectFactory;
@@ -53,6 +55,7 @@ import jenkins.branch.MultiBranchProject;
 import jenkins.branch.MultiBranchProjectDescriptor;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceCriteria;
+import jenkins.scm.api.mixin.ChangeRequestCheckoutStrategy;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject;
 import org.junit.Rule;
@@ -77,7 +80,15 @@ public class BranchScanningIntegrationTest {
         BitbucketMockApiFactory.add("http://bitbucket.test", BitbucketClientMockUtils.getAPIClientMock(
                 BitbucketRepositoryType.GIT, false));
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        BitbucketSCMSource source = new BitbucketSCMSource("amuniz", "test-repos");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
         source.setServerUrl("http://bitbucket.test");
         source.setOwner(p);
         p.getSourcesList().add(new BranchSource(source, new DefaultBranchPropertyStrategy(null)));
@@ -92,7 +103,15 @@ public class BranchScanningIntegrationTest {
     @Test
     public void uriResolverByCredentialsTest() throws Exception {
         WorkflowMultiBranchProject context = j.jenkins.createProject(WorkflowMultiBranchProject.class, "context");
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        BitbucketSCMSource source = new BitbucketSCMSource("amuniz", "test-repos");
+        source.setTraits(Arrays.asList(
+                new BranchDiscoveryTrait(true, true),
+                new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.HEAD)),
+                new ForkPullRequestDiscoveryTrait(
+                        EnumSet.of(ChangeRequestCheckoutStrategy.HEAD),
+                        new ForkPullRequestDiscoveryTrait.TrustTeamForks()
+                )
+        ));
         source.setServerUrl("http://bitbucket.test");
         context.getSourcesList().add(new BranchSource(source));
         IdCredentials c = new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, null, null, "user", "pass");

@@ -57,7 +57,7 @@ public class WebhooksAutoregisterTest {
         RingBufferLogHandler log = createJULTestHandler();
 
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        BitbucketSCMSource source = new BitbucketSCMSource( "amuniz", "test-repos");
         source.setAutoRegisterHook(true);
         p.getSourcesList().add(new BranchSource(source, new DefaultBranchPropertyStrategy(null)));
         p.scheduleBuild2(0);
@@ -79,7 +79,7 @@ public class WebhooksAutoregisterTest {
         RingBufferLogHandler log = createJULTestHandler();
 
         MultiBranchProjectImpl p = j.jenkins.createProject(MultiBranchProjectImpl.class, "test");
-        BitbucketSCMSource source = new BitbucketSCMSource(null, "amuniz", "test-repos");
+        BitbucketSCMSource source = new BitbucketSCMSource( "amuniz", "test-repos");
         p.getSourcesList().add(new BranchSource(source));
         p.scheduleBuild2(0);
         waitForLogFileMessage("Can not register hook. Jenkins root URL is not valid", log);
