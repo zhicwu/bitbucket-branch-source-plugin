@@ -1,13 +1,3 @@
-package com.cloudbees.jenkins.plugins.bitbucket;
-
-import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.Extension;
-import jenkins.scm.api.trait.SCMSourceContext;
-import jenkins.scm.api.trait.SCMSourceTrait;
-import jenkins.scm.api.trait.SCMSourceTraitDescriptor;
-import jenkins.scm.impl.trait.Discovery;
-import org.kohsuke.stapler.DataBoundConstructor;
-
 /*
  * The MIT License
  *
@@ -31,6 +21,16 @@ import org.kohsuke.stapler.DataBoundConstructor;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+package com.cloudbees.jenkins.plugins.bitbucket;
+
+import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.Extension;
+import jenkins.scm.api.trait.SCMSourceContext;
+import jenkins.scm.api.trait.SCMSourceTrait;
+import jenkins.scm.api.trait.SCMSourceTraitDescriptor;
+import jenkins.scm.impl.trait.Discovery;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
  * A {@link SCMSourceTrait} that supresses all pull requests if the repository is public.

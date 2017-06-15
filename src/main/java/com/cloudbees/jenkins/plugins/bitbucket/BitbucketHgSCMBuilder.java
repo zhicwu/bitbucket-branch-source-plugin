@@ -49,6 +49,8 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
@@ -61,6 +63,10 @@ import org.apache.commons.lang.StringUtils;
  * @since 2.2.0
  */
 public class BitbucketHgSCMBuilder extends MercurialSCMBuilder<BitbucketHgSCMBuilder> {
+    /**
+     * Our logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(BitbucketHgSCMBuilder.class.getName());
     /**
      * The {@link BitbucketSCMSource} who's {@link BitbucketSCMSource#getOwner()} can be used as the context for
      * resolving credentials.
@@ -212,6 +218,8 @@ public class BitbucketHgSCMBuilder extends MercurialSCMBuilder<BitbucketHgSCMBui
         if (h instanceof PullRequestSCMHead) {
             PullRequestSCMHead head = (PullRequestSCMHead) h;
             if (head.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.MERGE) {
+                LOGGER.log(Level.WARNING, "Building MERGE commits of PRs of Mercurial based repositories on "
+                        + "BitBucket Cloud is not currently supported, falling back to HEAD commit");
                 // TODO decorate with something that handles merge commits // FIXME file a Jenkins JIRA
             }
         }
