@@ -42,6 +42,10 @@ public class BitbucketCloudEndpoint extends AbstractBitbucketEndpoint {
      * The URL of Bitbucket Cloud.
      */
     public static final String SERVER_URL = "https://bitbucket.org";
+    /**
+     * A bad URL of Bitbucket Cloud.
+     */
+    public static final String BAD_SERVER_URL = "http://bitbucket.org";
 
     /**
      * Constructor.

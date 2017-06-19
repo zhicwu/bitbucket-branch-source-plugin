@@ -92,7 +92,8 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
         String serverUrl = normalizeServerUrl(bitbucketServerUrl);
         AbstractBitbucketEndpoint endpoint = findEndpoint(serverUrl);
         if (endpoint == null && ACL.SYSTEM.equals(Jenkins.getAuthentication())) {
-            if (BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
+            if (BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)
+                    || BitbucketCloudEndpoint.BAD_SERVER_URL.equals(serverUrl)) {
                 // exception case
                 addEndpoint(new BitbucketCloudEndpoint(false, null));
             } else {
