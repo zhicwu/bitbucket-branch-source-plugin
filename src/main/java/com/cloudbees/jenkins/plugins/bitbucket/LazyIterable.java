@@ -23,13 +23,34 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.util.Iterator;
 
+/**
+ * An iterable that will lazily instantiate its delegate.
+ *
+ * @param <V> the type of object iterated.
+ * @since 2.2.0
+ */
 abstract class LazyIterable<V> implements Iterable<V> {
+    /**
+     * The delegate.
+     */
+    @CheckForNull
     private Iterable<V> delegate;
 
+    /**
+     * Instantiates the delegate.
+     *
+     * @return the delegate.
+     */
+    @NonNull
     protected abstract Iterable<V> create();
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public synchronized Iterator<V> iterator() {
         if (delegate == null) {

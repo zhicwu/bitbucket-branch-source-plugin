@@ -59,7 +59,7 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
      * Constructor.
      *
      * @param id            the {@link BitbucketSCMSource#getId()}
-     * @param serverUrl     the {@link BitbucketSCMSource#getBitbucketServerUrl()};
+     * @param serverUrl     the {@link BitbucketSCMSource#getServerUrl()}
      * @param credentialsId the credentials id.
      * @param repoOwner     the repository owner.
      * @param repoName      the project name.
@@ -79,6 +79,7 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
      *
      * @return the id of the {@link BitbucketSCMSource} that is being built.
      */
+    @CheckForNull
     public final String id() {
         return id;
     }
@@ -88,6 +89,7 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
      *
      * @return the server url of the {@link BitbucketSCMSource} that is being built.
      */
+    @NonNull
     public final String serverUrl() {
         return serverUrl;
     }
@@ -97,6 +99,7 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
      *
      * @return the credentials that the {@link BitbucketSCMSource} will use.
      */
+    @CheckForNull
     public final String credentialsId() {
         return credentialsId;
     }
@@ -106,6 +109,7 @@ public class BitbucketSCMSourceBuilder extends SCMSourceBuilder<BitbucketSCMSour
      *
      * @return the repository owner that the {@link BitbucketSCMSource} will be configured to use.
      */
+    @NonNull
     public final String repoOwner() {
         return repoOwner;
     }
