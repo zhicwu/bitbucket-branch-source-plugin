@@ -65,7 +65,6 @@ import java.util.List;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
-import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethod;
@@ -425,8 +424,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return getRepository().isPrivate();
     }
 
-    private BitbucketRepositoryHooks parsePaginatedRepositoryHooks(String response) throws
-            IOException {
+    private BitbucketRepositoryHooks parsePaginatedRepositoryHooks(String response) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         BitbucketRepositoryHooks parsedResponse;
         parsedResponse = mapper.readValue(response, BitbucketRepositoryHooks.class);
@@ -586,22 +584,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         GetMethod httpget = new GetMethod(path);
         try {
             executeMethod(client, httpget);
-            String response;
-            long len = httpget.getResponseContentLength();
-            if (len == 0) {
-                response = "";
-            } else {
-                ByteArrayOutputStream buf;
-                if (len > 0 && len <= Integer.MAX_VALUE / 2) {
-                    buf = new ByteArrayOutputStream((int) len);
-                } else {
-                    buf = new ByteArrayOutputStream();
-                }
-                try (InputStream is = httpget.getResponseBodyAsStream()) {
-                    IOUtils.copy(is, buf);
-                }
-                response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
-            }
+            String response = getResponseContent(httpget, httpget.getResponseContentLength());
             if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
@@ -669,36 +652,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
                 // 204, no content
                 return "";
             }
-            String response;
-            long len = -1L;
-            Header[] headers = httppost.getResponseHeaders("Content-Length");
-            if (headers != null && headers.length > 0) {
-                int i = headers.length - 1;
-                len = -1L;
-                while (i >= 0) {
-                    Header header = headers[i];
-                    try {
-                        len = Long.parseLong(header.getValue());
-                        break;
-                    } catch (NumberFormatException var5) {
-                        --i;
-                    }
-                }
-            }
-            if (len == 0) {
-                response = "";
-            } else {
-                ByteArrayOutputStream buf;
-                if (len > 0 && len <= Integer.MAX_VALUE / 2) {
-                    buf = new ByteArrayOutputStream((int) len);
-                } else {
-                    buf = new ByteArrayOutputStream();
-                }
-                try (InputStream is = httppost.getResponseBodyAsStream()) {
-                    IOUtils.copy(is, buf);
-                }
-                response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
-            }
+            String response = getResponseContent(httppost, httppost.getResponseContentLength());
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
             }
@@ -715,6 +669,25 @@ public class BitbucketCloudApiClient implements BitbucketApi {
             httppost.releaseConnection();
         }
 
+    }
+
+    private String getResponseContent(HttpMethod httppost, long len) throws IOException {
+        String response;
+        if (len == 0) {
+            response = "";
+        } else {
+            ByteArrayOutputStream buf;
+            if (len > 0 && len <= Integer.MAX_VALUE / 2) {
+                buf = new ByteArrayOutputStream((int) len);
+            } else {
+                buf = new ByteArrayOutputStream();
+            }
+            try (InputStream is = httppost.getResponseBodyAsStream()) {
+                IOUtils.copy(is, buf);
+            }
+            response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        }
+        return response;
     }
 
     private <T> String serialize(T o) throws IOException {
