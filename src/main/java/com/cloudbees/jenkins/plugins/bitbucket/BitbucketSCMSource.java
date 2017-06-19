@@ -722,9 +722,6 @@ public class BitbucketSCMSource extends SCMSource {
                                 + " and branch "
                                 + pull.getSource().getBranch().getName());
                 continue;
-            } catch (Throwable t) {
-                // TODO remove
-                t.printStackTrace(request.listener().getLogger());
             }
         }
         request.listener().getLogger().format("%n  %d pull requests were processed%n", count);
