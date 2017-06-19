@@ -157,7 +157,7 @@ public class BranchDiscoveryTrait extends SCMSourceTrait {
          */
         @Override
         public String getDisplayName() {
-            return "Discover branches";
+            return Messages.BranchDiscoveryTrait_displayName();
         }
 
         /**
