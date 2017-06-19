@@ -42,10 +42,8 @@ public class BitbucketSCMNavigatorRequest extends SCMNavigatorRequest {
      * @param observer the observer.
      */
     protected BitbucketSCMNavigatorRequest(@NonNull SCMNavigator source,
-                                           @NonNull
-                                                   BitbucketSCMNavigatorContext context,
-                                           @NonNull
-                                                   SCMSourceObserver observer) {
+                                           @NonNull BitbucketSCMNavigatorContext context,
+                                           @NonNull SCMSourceObserver observer) {
         super(source, context, observer);
     }
 }
