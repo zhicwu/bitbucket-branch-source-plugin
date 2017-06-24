@@ -1216,8 +1216,10 @@ public class BitbucketSCMSource extends SCMSource {
         }
 
         public List<NamedArrayList<? extends SCMSourceTraitDescriptor>> getTraitsDescriptorLists() {
-            List<SCMSourceTraitDescriptor> all =
-                    SCMSourceTrait._for(this, BitbucketSCMSourceContext.class, null);
+            List<SCMSourceTraitDescriptor> all = new ArrayList<>();
+            // all that are applicable to our context
+            all.addAll(SCMSourceTrait._for(this, BitbucketSCMSourceContext.class, null));
+            // all that are applicable to our builders
             all.addAll(SCMSourceTrait._for(this, null, BitbucketGitSCMBuilder.class));
             all.addAll(SCMSourceTrait._for(this, null, BitbucketHgSCMBuilder.class));
             Set<SCMSourceTraitDescriptor> dedup = new HashSet<>();

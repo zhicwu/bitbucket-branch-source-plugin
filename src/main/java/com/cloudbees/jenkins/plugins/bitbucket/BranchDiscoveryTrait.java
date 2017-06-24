@@ -32,6 +32,7 @@ import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMHeadCategory;
 import jenkins.scm.api.SCMHeadOrigin;
 import jenkins.scm.api.SCMRevision;
+import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.trait.SCMHeadAuthority;
 import jenkins.scm.api.trait.SCMHeadAuthorityDescriptor;
 import jenkins.scm.api.trait.SCMHeadFilter;
@@ -164,8 +165,16 @@ public class BranchDiscoveryTrait extends SCMSourceTrait {
          * {@inheritDoc}
          */
         @Override
-        public boolean isApplicableToContext(@NonNull Class<? extends SCMSourceContext> contextClass) {
-            return BitbucketSCMSourceContext.class.isAssignableFrom(contextClass);
+        public Class<? extends SCMSourceContext> getContextClass() {
+            return BitbucketSCMSourceContext.class;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Class<? extends SCMSource> getSourceClass() {
+            return BitbucketSCMSource.class;
         }
 
         /**

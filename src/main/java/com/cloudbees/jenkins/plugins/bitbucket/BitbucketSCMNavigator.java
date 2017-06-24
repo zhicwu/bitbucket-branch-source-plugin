@@ -69,6 +69,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import jenkins.model.Jenkins;
 import jenkins.plugins.git.traits.GitBrowserSCMSourceTrait;
 import jenkins.scm.api.SCMNavigator;
 import jenkins.scm.api.SCMNavigatorDescriptor;
@@ -631,12 +632,14 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         }
 
         public List<NamedArrayList<? extends SCMTraitDescriptor<?>>> getTraitsDescriptorLists() {
+            BitbucketSCMSource.DescriptorImpl sourceDescriptor =
+                    Jenkins.getActiveInstance().getDescriptorByType(BitbucketSCMSource.DescriptorImpl.class);
             List<SCMTraitDescriptor<?>> all = new ArrayList<>();
             all.addAll(
                     SCMNavigatorTrait._for(this, BitbucketSCMNavigatorContext.class, BitbucketSCMSourceBuilder.class));
-            all.addAll(SCMSourceTrait._for(BitbucketSCMSourceContext.class, null));
-            all.addAll(SCMSourceTrait._for(null, BitbucketGitSCMBuilder.class));
-            all.addAll(SCMSourceTrait._for(null, BitbucketHgSCMBuilder.class));
+            all.addAll(SCMSourceTrait._for(sourceDescriptor, BitbucketSCMSourceContext.class, null));
+            all.addAll(SCMSourceTrait._for(sourceDescriptor, null, BitbucketGitSCMBuilder.class));
+            all.addAll(SCMSourceTrait._for(sourceDescriptor, null, BitbucketHgSCMBuilder.class));
             Set<SCMTraitDescriptor<?>> dedup = new HashSet<>();
             for (Iterator<SCMTraitDescriptor<?>> iterator = all.iterator(); iterator.hasNext(); ) {
                 SCMTraitDescriptor<?> d = iterator.next();

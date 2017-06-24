@@ -26,6 +26,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.trait.SCMSourceContext;
 import jenkins.scm.api.trait.SCMSourceTrait;
 import jenkins.scm.api.trait.SCMSourceTraitDescriptor;
@@ -75,5 +76,14 @@ public class PublicRepoPullRequestFilterTrait extends SCMSourceTrait {
         public Class<? extends SCMSourceContext> getContextClass() {
             return BitbucketSCMSourceContext.class;
         }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Class<? extends SCMSource> getSourceClass() {
+            return BitbucketSCMSource.class;
+        }
+
     }
 }
