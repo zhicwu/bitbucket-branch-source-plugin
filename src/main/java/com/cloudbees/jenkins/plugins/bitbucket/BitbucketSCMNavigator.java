@@ -149,10 +149,6 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         this.repoOwner = repoOwner;
         this.traits = new ArrayList<>();
         this.credentialsId = null; // highlighting the default is anonymous unless you configure explicitly
-        this.traits.add(new BranchDiscoveryTrait(true, false));
-        this.traits.add(new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE)));
-        this.traits.add(new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE),
-                new ForkPullRequestDiscoveryTrait.TrustTeamForks()));
     }
 
     @Deprecated // retained for binary compatibility
