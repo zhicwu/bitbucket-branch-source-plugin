@@ -1,0 +1,10 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler"
+         xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+  <st:include class="${descriptor.clazz}" page="config-detail.jelly" optional="true"/>
+  <f:optionalBlock title="${%Manage hooks}" field="manageHooks" inline="true">
+    <f:entry field="credentialsId" title="${%Credentials}">
+      <c:select context="${app}"/>
+    </f:entry>
+  </f:optionalBlock>
+</j:jelly>

@@ -41,6 +41,7 @@ import jenkins.plugins.git.AbstractGitSCMSource;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMHeadMigration;
 import jenkins.scm.api.SCMRevision;
+import jenkins.scm.api.mixin.ChangeRequestCheckoutStrategy;
 import jenkins.scm.api.mixin.ChangeRequestSCMHead;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -92,7 +93,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
 
         public PR(String repoOwner, String repository, String branchName, String number,
                   BranchSCMHead target) {
-            super(repoOwner, repository, branchName, number, target);
+            super(repoOwner, repository, branchName, number, target, null);
         }
     }
 
@@ -107,8 +108,8 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         Map<String, String> targets = new HashMap<>();
         try {
             final BitbucketApi bitbucket = BitbucketApiFactory.newInstance(
-                    source.getBitbucketServerUrl(),
-                    source.getScanCredentials(),
+                    source.getServerUrl(),
+                    source.credentials(),
                     source.getRepoOwner(),
                     source.getRepository()
             );
@@ -135,7 +136,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         }
 
         @Override
-        public SCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
+        public PullRequestSCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
             Map<String, String> targets = getTargets(source);
             String target = targets.get(head.getId());
             if (target == null) {
@@ -143,16 +144,30 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                         head.getId());
                 target = "\u0000";
             }
-            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target, BitbucketRepositoryType.MERCURIAL));
+            return new PullRequestSCMHead(
+                    head.getName(),
+                    head.getRepoOwner(),
+                    head.getRepository(),
+                    head.getBranchName(),
+                    head.getId(),
+                    new BranchSCMHead(target, BitbucketRepositoryType.MERCURIAL),
+                    source.originOf(head.getRepoOwner(), head.getRepository()),
+                    ChangeRequestCheckoutStrategy.HEAD
+            );
         }
 
         @Override
         public SCMRevision migrate(@NonNull BitbucketSCMSource source,
                                    @NonNull BitbucketSCMSource.MercurialRevision revision) {
 
-            SCMHead head = migrate(source, (PR) revision.getHead());
-            return head != null ? new BitbucketSCMSource.MercurialRevision(head, revision.getHash()) : null;
+            PullRequestSCMHead head = migrate(source, (PR) revision.getHead());
+            return head != null ? new PullRequestSCMRevision<>(
+                    head,
+                    // ChangeRequestCheckoutStrategy.HEAD means we ignore the target revision
+                    // so we can leave it null as a placeholder
+                    new BitbucketSCMSource.MercurialRevision(head.getTarget(), null),
+                    new BitbucketSCMSource.MercurialRevision(head, revision.getHash())
+            ) : null;
         }
     }
 
@@ -165,7 +180,7 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
         }
 
         @Override
-        public SCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
+        public PullRequestSCMHead migrate(@NonNull BitbucketSCMSource source, @NonNull PR head) {
             Map<String, String> targets = getTargets(source);
             String target = targets.get(head.getId());
             if (target == null) {
@@ -173,15 +188,29 @@ public class SCMHeadWithOwnerAndRepo extends SCMHead {
                         head.getId());
                 target = "\u0000";
             }
-            return new PullRequestSCMHead(head.getRepoOwner(), head.getRepository(), head.getBranchName(), head.getId(),
-                    new BranchSCMHead(target, BitbucketRepositoryType.GIT));
+            return new PullRequestSCMHead(
+                    head.getName(),
+                    head.getRepoOwner(),
+                    head.getRepository(),
+                    head.getBranchName(),
+                    head.getId(),
+                    new BranchSCMHead(target, BitbucketRepositoryType.GIT),
+                    source.originOf(head.getRepoOwner(), head.getRepository()),
+                    ChangeRequestCheckoutStrategy.HEAD
+            );
         }
 
         @Override
         public SCMRevision migrate(@NonNull BitbucketSCMSource source,
                                    @NonNull AbstractGitSCMSource.SCMRevisionImpl revision) {
-            SCMHead head = migrate(source, (PR) revision.getHead());
-            return head != null ? new AbstractGitSCMSource.SCMRevisionImpl(head, revision.getHash()) : null;
+            PullRequestSCMHead head = migrate(source, (PR) revision.getHead());
+            return head != null ? new PullRequestSCMRevision<>(head,
+                    // ChangeRequestCheckoutStrategy.HEAD means we ignore the target revision
+                    // so we can leave it null as a placeholder
+                    new AbstractGitSCMSource.SCMRevisionImpl(head.getTarget(), null),
+                    new AbstractGitSCMSource.SCMRevisionImpl(head, revision.getHash()
+                    )
+            ) : null;
         }
     }
 

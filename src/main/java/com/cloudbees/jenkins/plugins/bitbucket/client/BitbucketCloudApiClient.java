@@ -36,6 +36,8 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestCommits;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequests;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
@@ -44,45 +46,42 @@ import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketReposi
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHooks;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.PaginatedBitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.HookEventType;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
+import hudson.Util;
 import hudson.util.Secret;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
-import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HostConfiguration;
 import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpState;
+import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.URIException;
+import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 
 public class BitbucketCloudApiClient implements BitbucketApi {
@@ -271,8 +270,19 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      * {@inheritDoc}
      */
     @Override
-    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException, InterruptedException {
-        int status = getRequestStatus(V1_API_BASE_URL + owner + "/" + repositoryName + "/raw/" + branch + "/" + path);
+    public boolean checkPathExists(@NonNull String branchOrHash, @NonNull String path)
+            throws IOException, InterruptedException {
+        StringBuilder url = new StringBuilder(V1_API_BASE_URL);
+        url.append(owner);
+        url.append('/');
+        url.append(repositoryName);
+        url.append("/raw/");
+        url.append(Util.rawEncode(branchOrHash));
+        for (String segment : StringUtils.split(path, "/")) {
+            url.append('/');
+            url.append(Util.rawEncode(segment));
+        }
+        int status = getRequestStatus(url.toString());
         return status == HttpStatus.SC_OK;
     }
 
@@ -333,12 +343,15 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     @NonNull
     @Override
     public String resolveSourceFullHash(@NonNull BitbucketPullRequest pull) throws IOException, InterruptedException {
-        String url = V2_API_BASE_URL + pull.getSource().getRepository().getOwnerName() + "/" +
-                pull.getSource().getRepository().getRepositoryName() + "/commit/" + pull.getSource().getCommit()
-                .getHash();
+        String url = V2_API_BASE_URL + owner + "/" + repositoryName + "/pullrequests/" + pull.getId()
+                + "/commits?fields=values.hash&pagelen=1";
         String response = getRequest(url);
         try {
-            return parse(response, BitbucketCloudCommit.class).getHash();
+            BitbucketPullRequestCommits commits = parse(response, BitbucketPullRequestCommits.class);
+            for (BitbucketPullRequestCommit commit : Util.fixNull(commits.getValues())) {
+                return commit.getHash();
+            }
+            throw new BitbucketException("Could not determine commit for pull request " + pull.getId());
         } catch (IOException e) {
             throw new IOException("I/O error when parsing response from URL: " + url, e);
         }
@@ -360,7 +373,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         if (StringUtils.isBlank(hook.getUuid())) {
             throw new BitbucketException("Hook UUID required");
         }
-        deleteRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks/" + URLEncoder.encode(hook.getUuid(), "UTF-8"));
+        deleteRequest(V2_API_BASE_URL + owner + "/" + repositoryName + "/hooks/" + Util.rawEncode(hook.getUuid()));
     }
 
     /**
@@ -397,7 +410,9 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      */
     @Override
     public void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException {
-        String path = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/commit/" + status.getHash() + "/statuses/build";;
+        String path = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/commit/" + status.getHash()
+                + "/statuses/build";
+
         postRequest(path, serialize(status));
     }
 
@@ -409,14 +424,14 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return getRepository().isPrivate();
     }
 
-    private BitbucketRepositoryHooks parsePaginatedRepositoryHooks(String response) throws JsonParseException, JsonMappingException, IOException {
+    private BitbucketRepositoryHooks parsePaginatedRepositoryHooks(String response) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         BitbucketRepositoryHooks parsedResponse;
         parsedResponse = mapper.readValue(response, BitbucketRepositoryHooks.class);
         return parsedResponse;
     }
 
-    private String asJson(BitbucketWebHook hook) throws JsonGenerationException, JsonMappingException, IOException {
+    private String asJson(BitbucketWebHook hook) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.writeValueAsString(hook);
     }
@@ -430,6 +445,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         try {
             String response = getRequest(V2_TEAMS_API_BASE_URL + owner);
             return parse(response, BitbucketCloudTeam.class);
+        } catch (FileNotFoundException e) {
+            return null;
         } catch (IOException e) {
             throw new IOException("I/O error when parsing response from URL: " + V2_TEAMS_API_BASE_URL + owner, e);
 
@@ -487,8 +504,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
             client.getParams().setConnectionManagerTimeout(10 * 1000);
             client.getParams().setSoTimeout(60 * 1000);
 
-            client.getState().setCredentials(AuthScope.ANY, credentials);
-            client.getParams().setAuthenticationPreemptive(true);
+            if (credentials != null) {
+                client.getState().setCredentials(AuthScope.ANY, credentials);
+                client.getParams().setAuthenticationPreemptive(true);
+            } else {
+                client.getParams().setAuthenticationPreemptive(false);
+            }
 
             setClientProxyParams("bitbucket.org", client);
             this.client = client;
@@ -563,7 +584,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         GetMethod httpget = new GetMethod(path);
         try {
             executeMethod(client, httpget);
-            String response = new String(httpget.getResponseBody(), "UTF-8");
+            String response = getResponseContent(httpget, httpget.getResponseContentLength());
             if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
@@ -631,7 +652,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
                 // 204, no content
                 return "";
             }
-            String response = new String(httppost.getResponseBody(), "UTF-8");
+            String response = getResponseContent(httppost, httppost.getResponseContentLength());
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
             }
@@ -648,6 +669,25 @@ public class BitbucketCloudApiClient implements BitbucketApi {
             httppost.releaseConnection();
         }
 
+    }
+
+    private String getResponseContent(HttpMethod httppost, long len) throws IOException {
+        String response;
+        if (len == 0) {
+            response = "";
+        } else {
+            ByteArrayOutputStream buf;
+            if (len > 0 && len <= Integer.MAX_VALUE / 2) {
+                buf = new ByteArrayOutputStream((int) len);
+            } else {
+                buf = new ByteArrayOutputStream();
+            }
+            try (InputStream is = httppost.getResponseBodyAsStream()) {
+                IOUtils.copy(is, buf);
+            }
+            response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+        }
+        return response;
     }
 
     private <T> String serialize(T o) throws IOException {

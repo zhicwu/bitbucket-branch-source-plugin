@@ -24,23 +24,23 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
-import java.util.Map;
-
-import static org.junit.Assert.*;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.TestExtension;
-import org.kohsuke.stapler.DataBoundConstructor;
-
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketServerEndpoint;
 import hudson.model.ItemGroup;
+import java.util.Map;
 import jenkins.branch.MultiBranchProject;
 import jenkins.branch.MultiBranchProjectFactory;
 import jenkins.branch.MultiBranchProjectFactoryDescriptor;
 import jenkins.branch.OrganizationFolder;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceCriteria;
+import org.junit.Rule;
+import org.junit.Test;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.TestExtension;
+import org.kohsuke.stapler.DataBoundConstructor;
+
+import static org.junit.Assert.assertEquals;
 
 public class SCMNavigatorIntegrationTest {
 
@@ -49,6 +49,8 @@ public class SCMNavigatorIntegrationTest {
 
     @Test
     public void teamDiscoveringTest() throws Exception {
+        BitbucketEndpointConfiguration
+                .get().addEndpoint(new BitbucketServerEndpoint("test", "http://bitbucket.test", false, null));
         BitbucketMockApiFactory.add("http://bitbucket.test",
                 BitbucketClientMockUtils.getAPIClientMock(BitbucketRepositoryType.GIT, true));
         OrganizationFolder teamFolder = j.jenkins.createProject(OrganizationFolder.class, "test");

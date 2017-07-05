@@ -23,7 +23,22 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.hooks;
 
+import com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource;
+import com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSourceContext;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.AbstractBitbucketEndpoint;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhook;
+import hudson.Extension;
+import hudson.model.Item;
+import hudson.model.listeners.ItemListener;
+import hudson.triggers.SafeTimerTask;
+import hudson.util.DaemonThreadFactory;
+import hudson.util.NamingThreadFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,19 +50,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import com.cloudbees.jenkins.plugins.bitbucket.BitbucketSCMSource;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
-
-import hudson.Extension;
-import hudson.model.Item;
-import hudson.model.listeners.ItemListener;
-import hudson.triggers.SafeTimerTask;
-import hudson.util.DaemonThreadFactory;
-import hudson.util.NamingThreadFactory;
 import jenkins.model.Jenkins;
+import jenkins.scm.api.SCMHeadObserver;
 import jenkins.scm.api.SCMSource;
 import jenkins.scm.api.SCMSourceOwner;
 import jenkins.scm.api.SCMSourceOwners;
@@ -95,7 +99,15 @@ public class WebhookAutoRegisterListener extends ItemListener {
     }
 
     private boolean isApplicable(Item item) {
-        return item instanceof SCMSourceOwner;
+        if (!(item instanceof SCMSourceOwner)) {
+            return false;
+        }
+        for (SCMSource source : ((SCMSourceOwner) item).getSCMSources()) {
+            if (source instanceof BitbucketSCMSource) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void registerHooksAsync(final SCMSourceOwner owner) {
@@ -127,16 +139,22 @@ public class WebhookAutoRegisterListener extends ItemListener {
     // synchronized just to avoid duplicated webhooks in case SCMSourceOwner is updated repeteadly and quickly
     private synchronized void registerHooks(SCMSourceOwner owner) throws IOException, InterruptedException {
         String rootUrl = Jenkins.getActiveInstance().getRootUrl();
+        List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
+        if (sources.isEmpty()) {
+            // don't spam logs if we are irrelevant
+            return;
+        }
         if (rootUrl != null && !rootUrl.startsWith("http://localhost")) {
-            List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
             for (BitbucketSCMSource source : sources) {
-                if (source.isAutoRegisterHook()) {
-                    BitbucketApi bitbucket = source.buildBitbucketClient();
+                BitbucketApi bitbucket = bitbucketApiFor(source);
+                if (bitbucket != null) {
                     List<? extends BitbucketWebHook> existent = bitbucket.getWebHooks();
                     BitbucketWebHook existing = null;
+                    String hookReceiverUrl =
+                            Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH;
                     for (BitbucketWebHook hook : existent) {
                         // Check if there is a hook pointing to us already
-                        if (hook.getUrl().equals(Jenkins.getActiveInstance().getRootUrl() + BitbucketSCMSourcePushHookReceiver.FULL_PATH)) {
+                        if (hookReceiverUrl.equals(hook.getUrl())) {
                             existing = hook;
                             break;
                         }
@@ -151,21 +169,42 @@ public class WebhookAutoRegisterListener extends ItemListener {
                             bitbucket.registerCommitWebHook(existing);
                         }
                     } else  if (existing == null) {
-                            LOGGER.info(String.format("Registering hook for %s/%s", source.getRepoOwner(), source.getRepository()));
-                            bitbucket.registerCommitWebHook(getHook(source));
+                        LOGGER.info(String.format("Registering hook for %s/%s", source.getRepoOwner(),
+                                source.getRepository()));
+                        bitbucket.registerCommitWebHook(getHook(source));
                     }
                 }
             }
         } else {
-            LOGGER.warning(String.format("Can not register hook. Jenkins root URL is not valid: %s", rootUrl));
+            // only complain about being unable to register the hook if someone wants the hook registered.
+            SOURCES:
+            for (BitbucketSCMSource source : sources) {
+                switch (new BitbucketSCMSourceContext(null, SCMHeadObserver.none())
+                        .withTraits(source.getTraits())
+                        .webhookRegistration()) {
+                    case DISABLE:
+                        continue SOURCES;
+                    case SYSTEM:
+                        AbstractBitbucketEndpoint endpoint =
+                                BitbucketEndpointConfiguration.get().findEndpoint(source.getServerUrl());
+                        if (endpoint == null || !endpoint.isManageHooks()) {
+                            continue SOURCES;
+                        }
+                        break;
+                    case ITEM:
+                        break;
+                }
+                LOGGER.warning(String.format("Can not register hook. Jenkins root URL is not valid: %s", rootUrl));
+                return;
+            }
         }
     }
 
     private void removeHooks(SCMSourceOwner owner) throws IOException, InterruptedException {
         List<BitbucketSCMSource> sources = getBitucketSCMSources(owner);
         for (BitbucketSCMSource source : sources) {
-            if (source.isAutoRegisterHook()) {
-                BitbucketApi bitbucket = source.buildBitbucketClient();
+            BitbucketApi bitbucket = bitbucketApiFor(source);
+            if (bitbucket != null) {
                 List<? extends BitbucketWebHook> existent = bitbucket.getWebHooks();
                 BitbucketWebHook hook = null;
                 for (BitbucketWebHook h : existent) {
@@ -183,6 +222,30 @@ public class WebhookAutoRegisterListener extends ItemListener {
                             source.getRepoOwner(), source.getRepository()));
                 }
             }
+        }
+    }
+
+    private BitbucketApi bitbucketApiFor(BitbucketSCMSource source) {
+        switch (new BitbucketSCMSourceContext(null, SCMHeadObserver.none())
+                .withTraits(source.getTraits())
+                .webhookRegistration()) {
+            case DISABLE:
+                return null;
+            case SYSTEM:
+                AbstractBitbucketEndpoint endpoint =
+                        BitbucketEndpointConfiguration.get().findEndpoint(source.getServerUrl());
+                return endpoint == null || !endpoint.isManageHooks()
+                        ? null
+                        : BitbucketApiFactory.newInstance(
+                                endpoint.getServerUrl(),
+                                endpoint.credentials(),
+                                source.getRepoOwner(),
+                                source.getRepository()
+                        );
+            case ITEM:
+                return source.buildBitbucketClient();
+            default:
+                return null;
         }
     }
 
@@ -213,7 +276,7 @@ public class WebhookAutoRegisterListener extends ItemListener {
     }
 
     private BitbucketWebHook getHook(BitbucketSCMSource owner) {
-        if (owner.getBitbucketServerUrl() == null) {
+        if (BitbucketCloudEndpoint.SERVER_URL.equals(owner.getServerUrl())) {
             BitbucketRepositoryHook hook = new BitbucketRepositoryHook();
             hook.setActive(true);
             hook.setDescription("Jenkins hook");

@@ -23,36 +23,33 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
+import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
+import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
+import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValueDestination;
+import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValueRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudTeam;
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
+import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
+import hudson.model.TaskListener;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
-import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
-import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
-import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
-import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue;
-import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValue.Author;
-import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestValueRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketRepositoryHook;
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.BitbucketCloudTeam;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
-
-import hudson.model.TaskListener;
 import jenkins.model.Jenkins;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class BitbucketClientMockUtils {
 
@@ -74,14 +71,15 @@ public class BitbucketClientMockUtils {
 
         if (includePullRequests) {
             when(bitbucket.getPullRequests()).thenReturn(Arrays.asList(getPullRequest()));
-            when(bitbucket.checkPathExists("my-feature-branch", "markerfile.txt")).thenReturn(true);
+            when(bitbucket.checkPathExists("e851558f77c098d21af6bb8cc54a423f7cf12147", "markerfile.txt"))
+                    .thenReturn(true);
             when(bitbucket.resolveSourceFullHash(any(BitbucketPullRequestValue.class)))
                     .thenReturn("e851558f77c098d21af6bb8cc54a423f7cf12147");
         }
 
         // mock file exists
-        when(bitbucket.checkPathExists("branch1", "markerfile.txt")).thenReturn(true);
-        when(bitbucket.checkPathExists("branch2", "markerfile.txt")).thenReturn(false);
+        when(bitbucket.checkPathExists("52fc8e220d77ec400f7fc96a91d2fd0bb1bc553a", "markerfile.txt")).thenReturn(true);
+        when(bitbucket.checkPathExists("707c59ce8292c927dddb6807fcf9c3c5e7c9b00f", "markerfile.txt")).thenReturn(false);
 
         // Team discovering mocks
         when(bitbucket.getTeam()).thenReturn(getTeam());

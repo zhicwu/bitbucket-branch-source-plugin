@@ -25,147 +25,108 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.FilePath;
-import hudson.model.Item;
-import hudson.model.ItemGroup;
-import hudson.model.Job;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
-import hudson.plugins.git.Revision;
-import hudson.plugins.git.util.BuildData;
-import hudson.plugins.mercurial.MercurialTagAction;
+import hudson.plugins.mercurial.MercurialSCMSource;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
 import java.io.File;
 import java.io.IOException;
-import jenkins.scm.api.SCMHead;
+import javax.annotation.CheckForNull;
+import jenkins.plugins.git.AbstractGitSCMSource;
+import jenkins.scm.api.SCMHeadObserver;
+import jenkins.scm.api.SCMRevision;
+import jenkins.scm.api.SCMRevisionAction;
 import jenkins.scm.api.SCMSource;
-import jenkins.scm.api.SCMSourceOwner;
 import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
 
 /**
  * This class encapsulates all Bitbucket notifications logic.
  * {@link JobCompletedListener} sends a notification to Bitbucket after a build finishes.
  * Only builds derived from a job that was created as part of a multi branch project will be processed by this listener.
- *
- * The way the notification is sent is defined by the implementation of {@link BitbucketNotifier} returned by {@link #getNotifier(BitbucketApi)}.
- *
  */
 public class BitbucketBuildStatusNotifications {
 
-    private static void createBuildCommitStatus(@NonNull Run<?,?> build, @NonNull TaskListener listener, @NonNull BitbucketApi bitbucket)
+    private static void createStatus(@NonNull Run<?, ?> build, @NonNull TaskListener listener,
+                                     @NonNull BitbucketApi bitbucket, @NonNull String hash)
             throws IOException, InterruptedException {
-        String revision = extractRevision(build);
-        if (revision != null) {
-            Result result = build.getResult();
-            String url;
-            try {
-                url = DisplayURLProvider.get().getRunURL(build);
-            } catch (IllegalStateException e) {
-                listener.getLogger().println("Can not determine Jenkins root URL. Commit status notifications are disabled until a root URL is configured in Jenkins global configuration.");
-                return;
-            }
-            BitbucketBuildStatus status = null;
-            if (Result.SUCCESS.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "This commit looks good", "SUCCESSFUL", url, build.getParent().getName(), build.getDisplayName());
-            } else if (Result.UNSTABLE.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "This commit has test failures", "FAILED", url, build.getParent().getName(), build.getDisplayName());
-            } else if (Result.FAILURE.equals(result)) {
-                status = new BitbucketBuildStatus(revision, "There was a failure building this commit", "FAILED", url, build.getParent().getName(), build.getDisplayName());
-            } else if (result != null) { // ABORTED etc.
-                status = new BitbucketBuildStatus(revision, "Something is wrong with the build of this commit", "FAILED", url, build.getParent().getName(), build.getDisplayName());
-            } else {
-                status = new BitbucketBuildStatus(revision, "The tests have started...", "INPROGRESS", url, build.getParent().getName(), build.getDisplayName());
-            }
-            if (status != null) {
-                getNotifier(bitbucket).buildStatus(status);
-            }
-            if (result != null) {
-                listener.getLogger().println("[Bitbucket] Build result notified");
-            }
+        String url;
+        try {
+            url = DisplayURLProvider.get().getRunURL(build);
+        } catch (IllegalStateException e) {
+            listener.getLogger().println(
+                    "Can not determine Jenkins root URL. Commit status notifications are disabled until a root URL is"
+                            + " configured in Jenkins global configuration.");
+            return;
         }
-    }
-
-    @CheckForNull
-    private static String extractRevision(Run<?, ?> build) {
-        String revision = null;
-        BuildData gitBuildData = build.getAction(BuildData.class);
-        if (gitBuildData != null) {
-            Revision lastBuiltRevision = gitBuildData.getLastBuiltRevision();
-            if (lastBuiltRevision != null) {
-                revision = lastBuiltRevision.getSha1String();
-            }
+        String key = build.getParent().getFullName(); // use the job full name as the key for the status
+        String name = build.getDisplayName(); // use the build number as the display name of the status
+        BitbucketBuildStatus status;
+        Result result = build.getResult();
+        if (Result.SUCCESS.equals(result)) {
+            status = new BitbucketBuildStatus(hash, "This commit looks good", "SUCCESSFUL", url, key, name);
+        } else if (Result.UNSTABLE.equals(result)) {
+            status = new BitbucketBuildStatus(hash, "This commit has test failures", "FAILED", url, key, name);
+        } else if (Result.FAILURE.equals(result)) {
+            status = new BitbucketBuildStatus(hash, "There was a failure building this commit", "FAILED", url, key,
+                    name);
+        } else if (result != null) { // ABORTED etc.
+            status = new BitbucketBuildStatus(hash, "Something is wrong with the build of this commit", "FAILED", url,
+                    key, name);
         } else {
-            MercurialTagAction action = build.getAction(MercurialTagAction.class);
-            if (action != null) {
-                revision = action.getId();
-            }
+            status = new BitbucketBuildStatus(hash, "The tests have started...", "INPROGRESS", url, key, name);
         }
-        return revision;
-    }
-
-    private static void createPullRequestCommitStatus(Run<?,?> build, TaskListener listener, BitbucketApi bitbucket)
-            throws IOException, InterruptedException {
-        createBuildCommitStatus(build, listener, bitbucket);
-    }
-
-    private static BitbucketNotifier getNotifier(BitbucketApi bitbucket) {
-        return new BitbucketChangesetCommentNotifier(bitbucket);
-    }
-
-    @CheckForNull
-    private static BitbucketSCMSource lookUpSCMSource(Run<?, ?> build) {
-        ItemGroup<?> multiBranchProject = build.getParent().getParent();
-        if (multiBranchProject instanceof SCMSourceOwner) {
-            SCMSourceOwner scmSourceOwner = (SCMSourceOwner) multiBranchProject;
-            BitbucketSCMSource source = lookUpBitbucketSCMSource(scmSourceOwner);
-            if (source != null) {
-                return source;
-            }
+        new BitbucketChangesetCommentNotifier(bitbucket).buildStatus(status);
+        if (result != null) {
+            listener.getLogger().println("[Bitbucket] Build result notified");
         }
-        return null;
     }
 
-
-
-    /**
-     * It is possible having more than one SCMSource in our MultiBranch project.
-     * TODO: Does it make sense having more than one of the same type?
-     *
-     * @param scmSourceOwner An {@link Item} that owns {@link SCMSource} instances.
-     * @return A source or null
-     */
-    @CheckForNull
-    private static BitbucketSCMSource lookUpBitbucketSCMSource(final SCMSourceOwner scmSourceOwner) {
-        for (SCMSource scmSource : scmSourceOwner.getSCMSources()) {
-            if (scmSource instanceof BitbucketSCMSource) {
-                return (BitbucketSCMSource) scmSource;
-            }
-        }
-        return null;
-    }
-    
     private static void sendNotifications(Run<?, ?> build, TaskListener listener)
             throws IOException, InterruptedException {
-        BitbucketSCMSource source = lookUpSCMSource(build);
-        if (source != null && extractRevision(build) != null) {
-            SCMHead head = SCMHead.HeadByItem.findHead(build.getParent());
-            if (head instanceof PullRequestSCMHead) {
-                listener.getLogger().println("[Bitbucket] Notifying pull request build result");
-                createPullRequestCommitStatus(build, listener, source.buildBitbucketClient((PullRequestSCMHead) head));
-            } else {
-                listener.getLogger().println("[Bitbucket] Notifying commit build result");
-                createBuildCommitStatus(build, listener, source.buildBitbucketClient());
-            }
+        final SCMSource s = SCMSource.SourceByItem.findSource(build.getParent());
+        if (!(s instanceof BitbucketSCMSource)) {
+            return;
         }
+        BitbucketSCMSource source = (BitbucketSCMSource) s;
+        if (new BitbucketSCMSourceContext(null, SCMHeadObserver.none())
+                .withTraits(source.getTraits())
+                .notificationsDisabled()) {
+            return;
+        }
+        SCMRevision r = SCMRevisionAction.getRevision(build);  // TODO JENKINS-44648 getRevision(s, build)
+        String hash = getHash(r);
+        if (hash == null) {
+            return;
+        }
+        if (r instanceof PullRequestSCMRevision) {
+            listener.getLogger().println("[Bitbucket] Notifying pull request build result");
+            createStatus(build, listener, source.buildBitbucketClient((PullRequestSCMHead) r.getHead()), hash);
+
+        } else {
+            listener.getLogger().println("[Bitbucket] Notifying commit build result");
+            createStatus(build, listener, source.buildBitbucketClient(), hash);
+        }
+    }
+
+    @CheckForNull
+    private static String getHash(@CheckForNull SCMRevision revision) {
+        if (revision instanceof PullRequestSCMRevision) {
+            // unwrap
+            revision = ((PullRequestSCMRevision) revision).getPull();
+        }
+        if (revision instanceof MercurialSCMSource.MercurialRevision) {
+            return ((MercurialSCMSource.MercurialRevision) revision).getHash();
+        } else if (revision instanceof AbstractGitSCMSource.SCMRevisionImpl) {
+            return ((AbstractGitSCMSource.SCMRevisionImpl) revision).getHash();
+        }
+        return null;
     }
 
     /**
@@ -175,8 +136,13 @@ public class BitbucketBuildStatusNotifications {
     public static class JobCheckOutListener extends SCMListener {
 
         @Override
-        public void onCheckout(Run<?, ?> build, SCM scm, FilePath workspace, TaskListener listener, File changelogFile, SCMRevisionState pollingBaseline) throws Exception {
-            sendNotifications(build, listener);
+        public void onCheckout(Run<?, ?> build, SCM scm, FilePath workspace, TaskListener listener, File changelogFile,
+                               SCMRevisionState pollingBaseline) throws Exception {
+            try {
+                sendNotifications(build, listener);
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace(listener.error("Could not send notifications"));
+            }
         }
     }
 
@@ -184,9 +150,9 @@ public class BitbucketBuildStatusNotifications {
      * Sends notifications to Bitbucket on Run completed.
      */
     @Extension
-    public static class JobCompletedListener extends RunListener<Run<?,?>> {
+    public static class JobCompletedListener extends RunListener<Run<?, ?>> {
 
-        @Override 
+        @Override
         public void onCompleted(Run<?, ?> build, TaskListener listener) {
             try {
                 sendNotifications(build, listener);
