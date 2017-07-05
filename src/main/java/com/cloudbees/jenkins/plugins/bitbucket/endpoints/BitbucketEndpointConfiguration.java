@@ -163,6 +163,7 @@ public class BitbucketEndpointConfiguration extends GlobalConfiguration {
             String serverUrl = endpoint.getServerUrl();
             if (StringUtils.isBlank(serverUrl) || serverUrls.contains(serverUrl)) {
                 iterator.remove();
+                continue;
             } else if (!(endpoint instanceof BitbucketCloudEndpoint)
                     && BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
                 // fix type for the special case
