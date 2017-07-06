@@ -27,7 +27,6 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.ListBoxModel;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -229,10 +228,12 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
         }
     }
 
+
     /**
      * An {@link SCMHeadAuthority} that trusts nothing.
      */
-    public static class TrustNobody extends SCMHeadAuthority<SCMSourceRequest, ChangeRequestSCMHead2, SCMRevision> {
+    public static class TrustNobody extends SCMHeadAuthority<SCMSourceRequest, PullRequestSCMHead, PullRequestSCMRevision> {
+
         /**
          * Constructor.
          */
@@ -244,7 +245,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
          * {@inheritDoc}
          */
         @Override
-        public boolean checkTrusted(@NonNull SCMSourceRequest request, @NonNull ChangeRequestSCMHead2 head) {
+        public boolean checkTrusted(@NonNull SCMSourceRequest request, @NonNull PullRequestSCMHead head) {
             return false;
         }
 
@@ -276,7 +277,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
      * An {@link SCMHeadAuthority} that trusts forks belonging to the same account.
      */
     public static class TrustTeamForks
-            extends SCMHeadAuthority<BitbucketSCMSourceRequest, PullRequestSCMHead, SCMRevision> {
+            extends SCMHeadAuthority<BitbucketSCMSourceRequest, PullRequestSCMHead, PullRequestSCMRevision> {
 
         /**
          * Constructor.
@@ -325,7 +326,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
     /**
      * An {@link SCMHeadAuthority} that trusts everyone.
      */
-    public static class TrustEveryone extends SCMHeadAuthority<SCMSourceRequest, ChangeRequestSCMHead2, SCMRevision> {
+    public static class TrustEveryone extends SCMHeadAuthority<SCMSourceRequest, PullRequestSCMHead, PullRequestSCMRevision> {
         /**
          * Constructor.
          */
@@ -337,7 +338,7 @@ public class ForkPullRequestDiscoveryTrait extends SCMSourceTrait {
          * {@inheritDoc}
          */
         @Override
-        protected boolean checkTrusted(@NonNull SCMSourceRequest request, @NonNull ChangeRequestSCMHead2 head) {
+        protected boolean checkTrusted(@NonNull SCMSourceRequest request, @NonNull PullRequestSCMHead head) {
             return true;
         }
 
