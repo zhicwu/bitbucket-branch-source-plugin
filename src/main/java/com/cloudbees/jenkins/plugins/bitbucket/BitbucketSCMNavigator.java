@@ -32,6 +32,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepos
 import com.cloudbees.jenkins.plugins.bitbucket.endpoints.AbstractBitbucketEndpoint;
 import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerProject;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
@@ -521,7 +522,13 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                     null,
                     teamUrl
             ));
-            result.add(new BitbucketTeamMetadataAction(getLink(team.getLinks(), "avatar")));
+            String avatarUrl;
+            if (team instanceof BitbucketServerProject) {
+                avatarUrl = serverUrl + "/rest/api/1.0/projects/" + Util.rawEncode(repoOwner) + "/avatar.png";
+            }else {
+                avatarUrl = getLink(team.getLinks(), "avatar");
+            }
+            result.add(new BitbucketTeamMetadataAction(avatarUrl));
             result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
             listener.getLogger().printf("Team: %s%n", HyperlinkNote.encodeTo(teamUrl, teamDisplayName));
         } else {
@@ -531,6 +538,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                     null,
                     teamUrl
             ));
+            result.add(new BitbucketTeamMetadataAction(null));
             result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
             listener.getLogger().println("Could not resolve team details");
         }
