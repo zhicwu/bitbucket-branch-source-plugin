@@ -25,7 +25,9 @@
 package com.cloudbees.jenkins.plugins.bitbucket;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import jenkins.model.Jenkins;
 import jenkins.scm.api.metadata.AvatarMetadataAction;
+import org.kohsuke.stapler.Stapler;
 
 /**
  * Invisible property that retains information about Bitbucket team.
@@ -38,26 +40,16 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
         this.avatarUrl = avatarUrl;
     }
 
-// TODO when bitbucket supports serving avatars with a size request - currently only works if using gravatar or server
-//    /**
-//     * {@inheritDoc}
-//     */
-//    @Override
-//    public String getAvatarImageOf(String size) {
-//        if (avatarUrl == null) {
-//            // fall back to the generic github org icon
-//            String image = avatarIconClassNameImageOf(getAvatarIconClassName(), size);
-//            return image != null
-//                    ? image
-//                    : (Stapler.getCurrentRequest().getContextPath() + Jenkins.RESOURCE_PATH
-//                            + "/plugin/cloudbees-bitbucket-branch-source/images/" + size + "/bitbucket-logo.png");
-//        } else {
-//            String[] xy = size.split("x");
-//            if (xy.length == 0) return avatarUrl;
-//            if (avatarUrl.contains("?")) return avatarUrl + "&s=" + xy[0];
-//            else return avatarUrl + "?s=" + xy[0];
-//        }
-//    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getAvatarImageOf(String size) {
+        // fall back to the generic bitbucket org icon if no avatar provided
+        return avatarUrl == null
+                ? avatarIconClassNameImageOf(getAvatarIconClassName(), size)
+                : cachedResizedImageOf(avatarUrl, size);
+    }
 
 
     /**
@@ -65,9 +57,7 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
      */
     @Override
     public String getAvatarIconClassName() {
-        // TODO when bitbucket supports serving avatars with a size request
-        // return avatarUrl == null ? "icon-bitbucket-logo" : null;
-        return "icon-bitbucket-logo";
+        return avatarUrl == null ? "icon-bitbucket-logo" : null;
     }
 
     /**
