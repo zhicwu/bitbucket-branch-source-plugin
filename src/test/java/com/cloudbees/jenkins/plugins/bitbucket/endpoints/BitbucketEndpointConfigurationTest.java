@@ -533,11 +533,11 @@ public class BitbucketEndpointConfigurationTest {
         assertThat(instance.getEndpoints().get(1).getServerUrl(), is("https://bitbucket.org"));
         assertThat(instance.getEndpoints().get(1).isManageHooks(), is(false));
         assertThat(instance.getEndpoints().get(1).getCredentialsId(), is(nullValue()));
-        assertThat(instance.getEndpoints().get(2).getDisplayName(), is(nullValue()));
+        assertThat(instance.getEndpoints().get(2).getDisplayName(), is("example"));
         assertThat(instance.getEndpoints().get(2).getServerUrl(), is("https://bitbucket.example.com"));
         assertThat(instance.getEndpoints().get(2).isManageHooks(), is(false));
         assertThat(instance.getEndpoints().get(2).getCredentialsId(), is(nullValue()));
-        assertThat(instance.getEndpoints().get(3).getDisplayName(), is(nullValue()));
+        assertThat(instance.getEndpoints().get(3).getDisplayName(), is("example"));
         assertThat(instance.getEndpoints().get(3).getServerUrl(), is("http://example.org:8080/bitbucket"));
         assertThat(instance.getEndpoints().get(3).isManageHooks(), is(false));
         assertThat(instance.getEndpoints().get(3).getCredentialsId(), is(nullValue()));
