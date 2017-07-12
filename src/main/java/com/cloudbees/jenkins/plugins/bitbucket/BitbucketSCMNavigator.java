@@ -193,7 +193,8 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                         StringUtils.defaultIfBlank(excludes, "")));
             }
             if (checkoutCredentialsId != null
-                    && !BitbucketSCMSource.DescriptorImpl.SAME.equals(checkoutCredentialsId)) {
+                    && !BitbucketSCMSource.DescriptorImpl.SAME.equals(checkoutCredentialsId)
+                    && !checkoutCredentialsId.equals(credentialsId)) {
                 traits.add(new SSHCheckoutTrait(checkoutCredentialsId));
             }
             traits.add(new WebhookRegistrationTrait(

@@ -25,6 +25,7 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 
 import com.cloudbees.jenkins.plugins.sshcredentials.SSHUserPrivateKey;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
@@ -40,6 +41,7 @@ import hudson.plugins.mercurial.MercurialSCM;
 import hudson.plugins.mercurial.MercurialSCMBuilder;
 import hudson.scm.SCMDescriptor;
 import hudson.security.ACL;
+import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import jenkins.plugins.git.GitSCMBuilder;
@@ -48,6 +50,7 @@ import jenkins.scm.api.trait.SCMBuilder;
 import jenkins.scm.api.trait.SCMSourceContext;
 import jenkins.scm.api.trait.SCMSourceTrait;
 import jenkins.scm.api.trait.SCMSourceTraitDescriptor;
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -185,6 +188,43 @@ public class SSHCheckoutTrait extends SCMSourceTrait {
                     URIRequirementBuilder.fromUri(serverUrl).build(),
                     CredentialsMatchers.instanceOf(SSHUserPrivateKey.class)
             );
+        }
+
+        /**
+         * Validation for checkout credentials.
+         *
+         * @param context   the context.
+         * @param serverUrl the server url.
+         * @param value     the current selection.
+         * @return the validation results
+         */
+        @Restricted(NoExternalUse.class)
+        @SuppressWarnings("unused") // stapler form binding
+        public FormValidation doCheckCredentialsId(@CheckForNull @AncestorInPath Item context,
+                                                   @QueryParameter String serverUrl,
+                                                   @QueryParameter String value) {
+            if (context == null
+                    ? !Jenkins.getActiveInstance().hasPermission(Jenkins.ADMINISTER)
+                    : !context.hasPermission(Item.EXTENDED_READ)) {
+                return FormValidation.ok();
+            }
+            if (StringUtils.isBlank(value)) {
+                // use agent key
+                return FormValidation.ok();
+            }
+            if (CredentialsMatchers.firstOrNull(CredentialsProvider.lookupCredentials(SSHUserPrivateKey.class, context, context instanceof Queue.Task
+                    ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                    : ACL.SYSTEM, URIRequirementBuilder.fromUri(serverUrl).build()), CredentialsMatchers.withId(value)) != null) {
+                return FormValidation.ok();
+            }
+            if (CredentialsMatchers.firstOrNull(CredentialsProvider
+                            .lookupCredentials(StandardUsernameCredentials.class, context, context instanceof Queue.Task
+                                    ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                                    : ACL.SYSTEM, URIRequirementBuilder.fromUri(serverUrl).build()),
+                    CredentialsMatchers.withId(value)) != null) {
+                return FormValidation.error(Messages.SSHCheckoutTrait_incompatibleCredentials());
+            }
+            return FormValidation.warning(Messages.SSHCheckoutTrait_missingCredentials());
         }
 
     }
