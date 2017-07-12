@@ -32,6 +32,8 @@ import hudson.util.FormValidation;
 import java.net.MalformedURLException;
 import java.net.URL;
 import javax.annotation.Nonnull;
+import jenkins.scm.api.SCMName;
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -41,6 +43,19 @@ import org.kohsuke.stapler.QueryParameter;
  * @since 2.2.0
  */
 public class BitbucketServerEndpoint extends AbstractBitbucketEndpoint {
+
+    /**
+     * Common prefixes that we should remove when inferring a display name.
+     */
+    private static final String[] COMMON_PREFIX_HOSTNAMES = {
+            "git.",
+            "bitbucket.",
+            "bb.",
+            "stash.",
+            "vcs.",
+            "scm.",
+            "source."
+    };
 
     /**
      * Optional name to use to describe the end-point.
@@ -65,8 +80,10 @@ public class BitbucketServerEndpoint extends AbstractBitbucketEndpoint {
     public BitbucketServerEndpoint(@CheckForNull String displayName, @NonNull String serverUrl, boolean manageHooks,
                                    @CheckForNull String credentialsId) {
         super(manageHooks, credentialsId);
-        this.displayName = Util.fixEmpty(displayName);
         this.serverUrl = BitbucketEndpointConfiguration.normalizeServerUrl(serverUrl);
+        this.displayName = StringUtils.isBlank(displayName)
+                ? SCMName.fromUrl(this.serverUrl, COMMON_PREFIX_HOSTNAMES)
+                : displayName.trim();
     }
 
     /**
