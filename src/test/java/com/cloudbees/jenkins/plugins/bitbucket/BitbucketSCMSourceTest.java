@@ -10,6 +10,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 
 import static org.hamcrest.Matchers.allOf;
@@ -212,6 +213,47 @@ public class BitbucketSCMSourceTest {
         // Legacy API
         assertThat(instance.getBitbucketServerUrl(), is(nullValue()));
         assertThat(instance.getCheckoutCredentialsId(), is("other-credentials"));
+        assertThat(instance.getIncludes(), is("*"));
+        assertThat(instance.getExcludes(), is(""));
+        assertThat(instance.isAutoRegisterHook(), is(false));
+    }
+
+    @Issue("JENKINS-45467")
+    @Test
+    public void same_checkout_credentials() throws Exception {
+        BitbucketSCMSource instance = load();
+        assertThat(instance.getId(), is("com.cloudbees.jenkins.plugins.bitbucket"
+                + ".BitbucketSCMNavigator::https://bitbucket.org::cloudbeers::stunning-adventure"));
+        assertThat(instance.getServerUrl(), is("https://bitbucket.org"));
+        assertThat(instance.getRepoOwner(), is("cloudbeers"));
+        assertThat(instance.getRepository(), is("stunning-adventure"));
+        assertThat(instance.getCredentialsId(), is("bitbucket-cloud"));
+        assertThat(instance.getTraits(),
+                containsInAnyOrder(
+                        Matchers.<SCMSourceTrait>allOf(
+                                instanceOf(BranchDiscoveryTrait.class),
+                                hasProperty("buildBranch", is(true)),
+                                hasProperty("buildBranchesWithPR", is(true))
+                        ),
+                        Matchers.<SCMSourceTrait>allOf(
+                                instanceOf(OriginPullRequestDiscoveryTrait.class),
+                                hasProperty("strategyId", is(2))
+                        ),
+                        Matchers.<SCMSourceTrait>allOf(
+                                instanceOf(ForkPullRequestDiscoveryTrait.class),
+                                hasProperty("strategyId", is(2)),
+                                hasProperty("trust", instanceOf(ForkPullRequestDiscoveryTrait.TrustEveryone.class))
+                        ),
+                        Matchers.<SCMSourceTrait>instanceOf(PublicRepoPullRequestFilterTrait.class),
+                        Matchers.<SCMSourceTrait>allOf(
+                                instanceOf(WebhookRegistrationTrait.class),
+                                hasProperty("mode", is(WebhookRegistration.DISABLE))
+                        )
+                )
+        );
+        // Legacy API
+        assertThat(instance.getBitbucketServerUrl(), is(nullValue()));
+        assertThat(instance.getCheckoutCredentialsId(), is(BitbucketSCMSource.DescriptorImpl.SAME));
         assertThat(instance.getIncludes(), is("*"));
         assertThat(instance.getExcludes(), is(""));
         assertThat(instance.isAutoRegisterHook(), is(false));

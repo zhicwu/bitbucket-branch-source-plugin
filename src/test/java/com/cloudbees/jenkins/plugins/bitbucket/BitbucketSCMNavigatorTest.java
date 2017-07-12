@@ -12,6 +12,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
 
 import static org.hamcrest.Matchers.allOf;
@@ -198,6 +199,60 @@ public class BitbucketSCMNavigatorTest {
         // legacy API
         assertThat(instance.getBitbucketServerUrl(), is("https://bitbucket.test"));
         assertThat(instance.getCheckoutCredentialsId(), is(BitbucketSCMSource.DescriptorImpl.ANONYMOUS));
+        assertThat(instance.getPattern(), is(".*"));
+        assertThat(instance.isAutoRegisterHooks(), is(false));
+        assertThat(instance.getIncludes(), is("*"));
+        assertThat(instance.getExcludes(), is(""));
+    }
+
+    @Issue("JENKINS-45467")
+    @Test
+    public void same_checkout_credentials() throws Exception {
+        BitbucketSCMNavigator instance = load();
+        assertThat(instance.id(), is("https://bitbucket.test::DUB"));
+        assertThat(instance.getRepoOwner(), is("DUB"));
+        assertThat(instance.getServerUrl(), is("https://bitbucket.test"));
+        assertThat(instance.getCredentialsId(), is("bitbucket"));
+        assertThat("checkout credentials equal to scan should mean no checkout trait",
+                instance.getTraits(),
+                not(
+                        hasItem(
+                                Matchers.<SCMTrait<?>>allOf(
+                                        Matchers.instanceOf(SSHCheckoutTrait.class),
+                                        hasProperty("credentialsId", is(nullValue()))
+                                )
+                        )
+                )
+        );
+        assertThat(".* as a pattern should mean no RegexSCMSourceFilterTrait",
+                instance.getTraits(),
+                not(hasItem(Matchers.<SCMTrait<?>>instanceOf(RegexSCMSourceFilterTrait.class))));
+        assertThat(instance.getTraits(),
+                containsInAnyOrder(
+                        Matchers.<SCMTrait<?>>allOf(
+                                instanceOf(BranchDiscoveryTrait.class),
+                                hasProperty("buildBranch", is(true)),
+                                hasProperty("buildBranchesWithPR", is(true))
+                        ),
+                        Matchers.<SCMTrait<?>>allOf(
+                                instanceOf(OriginPullRequestDiscoveryTrait.class),
+                                hasProperty("strategyId", is(2))
+                        ),
+                        Matchers.<SCMTrait<?>>allOf(
+                                instanceOf(ForkPullRequestDiscoveryTrait.class),
+                                hasProperty("strategyId", is(2)),
+                                hasProperty("trust", instanceOf(ForkPullRequestDiscoveryTrait.TrustEveryone.class))
+                        ),
+                        Matchers.<SCMTrait<?>>instanceOf(PublicRepoPullRequestFilterTrait.class),
+                        Matchers.<SCMTrait<?>>allOf(
+                                instanceOf(WebhookRegistrationTrait.class),
+                                hasProperty("mode", is(WebhookRegistration.DISABLE))
+                        )
+                )
+        );
+        // legacy API
+        assertThat(instance.getBitbucketServerUrl(), is("https://bitbucket.test"));
+        assertThat(instance.getCheckoutCredentialsId(), is(BitbucketSCMSource.DescriptorImpl.SAME));
         assertThat(instance.getPattern(), is(".*"));
         assertThat(instance.isAutoRegisterHooks(), is(false));
         assertThat(instance.getIncludes(), is("*"));
