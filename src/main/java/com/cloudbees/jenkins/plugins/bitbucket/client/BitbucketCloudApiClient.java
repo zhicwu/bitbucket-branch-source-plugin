@@ -87,9 +87,9 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 public class BitbucketCloudApiClient implements BitbucketApi {
     private static final Logger LOGGER = Logger.getLogger(BitbucketCloudApiClient.class.getName());
-    private static final String V1_API_BASE_URL = "https://bitbucket.org/api/1.0/repositories/";
-    private static final String V2_API_BASE_URL = "https://bitbucket.org/api/2.0/repositories/";
-    private static final String V2_TEAMS_API_BASE_URL = "https://bitbucket.org/api/2.0/teams/";
+    private static final String V1_API_BASE_URL = "https://api.bitbucket.org/1.0/repositories/";
+    private static final String V2_API_BASE_URL = "https://api.bitbucket.org/2.0/repositories/";
+    private static final String V2_TEAMS_API_BASE_URL = "https://api.bitbucket.org/2.0/teams/";
     private static final int MAX_PAGES = 100;
     private HttpClient client;
     private static final MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
