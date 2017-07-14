@@ -31,6 +31,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPushEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudWebhookPayload;
 import com.cloudbees.jenkins.plugins.bitbucket.client.events.BitbucketCloudPushEvent;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.BitbucketServerWebhookPayload;
 import com.cloudbees.jenkins.plugins.bitbucket.server.events.BitbucketServerPushEvent;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -96,7 +97,7 @@ public class PushHookProcessor extends HookProcessor {
                         }
 
                         private boolean isServerUrlMatch(String serverUrl) {
-                            if (serverUrl == null) {
+                            if (serverUrl == null || BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
                                 // this is a Bitbucket cloud navigator
                                 if (getPayload() instanceof BitbucketServerPushEvent) {
                                     return false;

@@ -105,7 +105,7 @@ public class PullRequestHookProcessor extends HookProcessor {
                     }
 
                     private boolean isServerUrlMatch(String serverUrl) {
-                        if (BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
+                        if (serverUrl == null || BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
                             // this is a Bitbucket cloud navigator
                             if (getPayload() instanceof BitbucketServerPullRequestEvent) {
                                 return false;
