@@ -279,7 +279,9 @@ public class BitbucketSCMSource extends SCMSource {
             if (!"*".equals(includes) || !"".equals(excludes)) {
                 traits.add(new WildcardSCMHeadFilterTrait(includes, excludes));
             }
-            if (!DescriptorImpl.SAME.equals(checkoutCredentialsId)) {
+            if (checkoutCredentialsId != null
+                    && !DescriptorImpl.SAME.equals(checkoutCredentialsId)
+                    && !checkoutCredentialsId.equals(credentialsId)) {
                 traits.add(new SSHCheckoutTrait(checkoutCredentialsId));
             }
             traits.add(new WebhookRegistrationTrait(
