@@ -289,11 +289,17 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     /**
      * {@inheritDoc}
      */
-    @NonNull
+    @CheckForNull
     @Override
     public String getDefaultBranch() throws IOException, InterruptedException {
         String url = V1_API_BASE_URL + this.owner + "/" + this.repositoryName + "/main-branch";
-        String response = getRequest(url);
+        String response;
+        try {
+            response = getRequest(url);
+        } catch (FileNotFoundException e) {
+            LOGGER.fine(String.format("Could not find default branch for %s/%s", this.owner, this.repositoryName));
+            return null;
+        }
         ObjectMapper mapper = new ObjectMapper();
         JsonNode name = mapper.readTree(response).get("name");
         if (name != null) {

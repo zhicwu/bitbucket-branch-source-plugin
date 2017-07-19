@@ -334,13 +334,16 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         return HttpStatus.SC_OK == status;
     }
 
-    @NonNull
+    @CheckForNull
     @Override
     public String getDefaultBranch() throws IOException {
         String url = String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName);
         try {
             String response = getRequest(url);
             return parse(response, BitbucketServerBranch.class).getName();
+        } catch (FileNotFoundException e) {
+            LOGGER.fine(String.format("Could not find default branch for %s/%s", this.owner, this.repositoryName));
+            return null;
         } catch (IOException e) {
             throw new IOException("I/O error when accessing URL: " + url, e);
         }

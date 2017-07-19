@@ -121,11 +121,11 @@ public interface BitbucketApi {
     /**
      * Gets the default branch in the repository.
      *
-     * @return the default branch in the repository.
+     * @return the default branch in the repository or null if no default branch set
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    @NonNull
+    @CheckForNull
     String getDefaultBranch() throws IOException, InterruptedException;
 
     /**
