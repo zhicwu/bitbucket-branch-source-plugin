@@ -587,7 +587,9 @@ public class BitbucketSCMNavigator extends SCMNavigator {
 
         @Override
         public SCMNavigator newInstance(String name) {
-            return new BitbucketSCMNavigator(StringUtils.defaultString(name));
+            BitbucketSCMNavigator instance = new BitbucketSCMNavigator(StringUtils.defaultString(name));
+            instance.setTraits(getTraitsDefaults());
+            return instance;
         }
 
         public boolean isServerUrlSelectable() {
