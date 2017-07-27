@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.List;
 import jenkins.plugins.git.AbstractGitSCMSource;
 import jenkins.plugins.git.GitSCMBuilder;
+import jenkins.plugins.git.MergeWithGitSCMExtension;
 import jenkins.scm.api.SCMHead;
 import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
