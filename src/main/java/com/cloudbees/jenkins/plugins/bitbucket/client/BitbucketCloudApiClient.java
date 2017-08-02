@@ -90,6 +90,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private static final String V2_API_BASE_URL = "https://api.bitbucket.org/2.0/repositories/";
     private static final String V2_TEAMS_API_BASE_URL = "https://api.bitbucket.org/2.0/teams/";
     private static final int MAX_PAGES = 100;
+    private static final int API_RATE_LIMIT_CODE = 429;
     private HttpClient client;
     private static final MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
     private final String owner;
@@ -591,6 +592,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         try {
             executeMethod(client, httpget);
             String response = getResponseContent(httpget, httpget.getResponseContentLength());
+            while (httpget.getStatusCode() == API_RATE_LIMIT_CODE) {
+                Thread.sleep(5000);
+                executeMethod(client, httpget);
+                response = getResponseContent(httpget, httpget.getResponseContentLength());
+            }
             if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
