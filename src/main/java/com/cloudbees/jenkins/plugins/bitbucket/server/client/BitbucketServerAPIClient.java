@@ -23,72 +23,64 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.server.client;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.Proxy;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.URIException;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.codehaus.jackson.map.ObjectMapper;
-
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryProtocol;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
-import com.cloudbees.jenkins.plugins.bitbucket.hooks.BitbucketSCMSourcePushHookReceiver;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerBranches;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.branch.BitbucketServerCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequests;
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.*;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerProject;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepositories;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerRepository;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerWebhooks;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
+import hudson.Util;
 import hudson.util.Secret;
-import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
-import org.apache.commons.httpclient.*;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.*;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-import org.codehaus.jackson.map.ObjectMapper;
-
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.Proxy;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
+import org.apache.commons.httpclient.Header;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpMethod;
+import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.NameValuePair;
+import org.apache.commons.httpclient.URIException;
+import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.methods.DeleteMethod;
+import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.codehaus.jackson.map.ObjectMapper;
 
 /**
  * Bitbucket API client.
@@ -119,7 +111,6 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
     /**
      * Repository owner.
-     * This must be null if {@link #project} is not null.
      */
     private String owner;
 
@@ -327,17 +318,32 @@ public class BitbucketServerAPIClient implements BitbucketApi {
      * {@inheritDoc}
      */
     @Override
-    public boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException {
-        return HttpStatus.SC_OK == getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, path, branch));
+    public boolean checkPathExists(@NonNull String branchOrHash, @NonNull String path) throws IOException {
+        StringBuilder encodedPath = new StringBuilder(path.length() + 10);
+        boolean first = true;
+        for (String segment : StringUtils.split(path, "/")) {
+            if (first) {
+                first = false;
+            } else {
+                encodedPath.append('/');
+            }
+            encodedPath.append(Util.rawEncode(segment));
+        }
+        int status = getRequestStatus(String.format(API_BROWSE_PATH, getUserCentricOwner(), repositoryName, encodedPath,
+                URLEncoder.encode(branchOrHash, "UTF-8")));
+        return HttpStatus.SC_OK == status;
     }
 
-    @NonNull
+    @CheckForNull
     @Override
     public String getDefaultBranch() throws IOException {
         String url = String.format(API_DEFAULT_BRANCH_PATH, getUserCentricOwner(), repositoryName);
         try {
             String response = getRequest(url);
             return parse(response, BitbucketServerBranch.class).getName();
+        } catch (FileNotFoundException e) {
+            LOGGER.fine(String.format("Could not find default branch for %s/%s", this.owner, this.repositoryName));
+            return null;
         } catch (IOException e) {
             throw new IOException("I/O error when accessing URL: " + url, e);
         }
@@ -421,6 +427,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             try {
                 String response = getRequest(url);
                 return parse(response, BitbucketServerProject.class);
+            } catch (FileNotFoundException e) {
+                return null;
             } catch (IOException e) {
                 throw new IOException("I/O error when accessing URL: " + url, e);
             }
@@ -453,6 +461,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 repositories.addAll(page.getValues());
             }
             return repositories;
+        } catch (FileNotFoundException e) {
+            return new ArrayList<>();
         } catch (IOException e) {
             throw new IOException("I/O error when accessing URL: " + url, e);
         }
@@ -481,12 +491,29 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         HttpClient client = getHttpClient(getMethodHost(httpget));
         try {
             client.executeMethod(httpget);
-            String response = new String(httpget.getResponseBody(), "UTF-8");
+            String response;
+            long len = httpget.getResponseContentLength();
+            if (len == 0) {
+                response = "";
+            } else {
+                ByteArrayOutputStream buf;
+                if (len > 0 && len <= Integer.MAX_VALUE / 2) {
+                    buf = new ByteArrayOutputStream((int) len);
+                } else {
+                    buf = new ByteArrayOutputStream();
+                }
+                try (InputStream is = httpget.getResponseBodyAsStream()) {
+                    IOUtils.copy(is, buf);
+                }
+                response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+            }
             if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
             if (httpget.getStatusCode() != HttpStatus.SC_OK) {
-                throw new BitbucketRequestException(httpget.getStatusCode(), "HTTP request error. Status: " + httpget.getStatusCode() + ": " + httpget.getStatusText() + ".\n" + response);
+                throw new BitbucketRequestException(httpget.getStatusCode(),
+                        "HTTP request error. Status: " + httpget.getStatusCode()
+                                + ": " + httpget.getStatusText() + ".\n" + response);
             }
             return response;
         } catch (BitbucketRequestException | FileNotFoundException e) {
@@ -504,8 +531,12 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         client.getParams().setConnectionManagerTimeout(10 * 1000);
         client.getParams().setSoTimeout(60 * 1000);
 
-        client.getState().setCredentials(AuthScope.ANY, credentials);
-        client.getParams().setAuthenticationPreemptive(true);
+        if (credentials != null) {
+            client.getState().setCredentials(AuthScope.ANY, credentials);
+            client.getParams().setAuthenticationPreemptive(true);
+        } else {
+            client.getParams().setAuthenticationPreemptive(false);
+        }
 
         setClientProxyParams(host, client);
         return client;
@@ -595,7 +626,36 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 // 204, no content
                 return "";
             }
-            String response = new String(httppost.getResponseBody(), "UTF-8");
+            String response;
+            long len = -1L;
+            Header[] headers = httppost.getResponseHeaders("Content-Length");
+            if (headers != null && headers.length > 0) {
+                int i = headers.length - 1;
+                len = -1L;
+                while (i >= 0) {
+                    Header header = headers[i];
+                    try {
+                        len = Long.parseLong(header.getValue());
+                        break;
+                    } catch (NumberFormatException var5) {
+                        --i;
+                    }
+                }
+            }
+            if (len == 0) {
+                response = "";
+            } else {
+                ByteArrayOutputStream buf;
+                if (len > 0 && len <= Integer.MAX_VALUE / 2) {
+                    buf = new ByteArrayOutputStream((int) len);
+                } else {
+                    buf = new ByteArrayOutputStream();
+                }
+                try (InputStream is = httppost.getResponseBodyAsStream()) {
+                    IOUtils.copy(is, buf);
+                }
+                response = new String(buf.toByteArray(), StandardCharsets.UTF_8);
+            }
             if (httppost.getStatusCode() != HttpStatus.SC_OK && httppost.getStatusCode() != HttpStatus.SC_CREATED) {
                 throw new BitbucketRequestException(httppost.getStatusCode(), "HTTP request error. Status: " + httppost.getStatusCode() + ": " + httppost.getStatusText() + ".\n" + response);
             }

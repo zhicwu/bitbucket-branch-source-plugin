@@ -23,13 +23,11 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
+import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.List;
-
-import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
-
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 
 /**
  * Provides access to a specific repository.
@@ -111,22 +109,23 @@ public interface BitbucketApi {
     /**
      * Checks if the given path exists in the repository at the specified branch.
      *
-     * @param branch the branch name
+     * @param branchOrHash the branch name or commit hash
      * @param path the path to check for
      * @return true if the path exists
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    boolean checkPathExists(@NonNull String branch, @NonNull String path) throws IOException, InterruptedException;
+    boolean checkPathExists(@NonNull String branchOrHash, @NonNull String path)
+            throws IOException, InterruptedException;
 
     /**
      * Gets the default branch in the repository.
      *
-     * @return the default branch in the repository.
+     * @return the default branch in the repository or null if no default branch set
      * @throws IOException if there was a network communications error.
      * @throws InterruptedException if interrupted while waiting on remote communications.
      */
-    @NonNull
+    @CheckForNull
     String getDefaultBranch() throws IOException, InterruptedException;
 
     /**

@@ -1,33 +1,30 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
-    xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
-  <f:entry title="${%Scan Credentials}" field="credentialsId">
+<j:jelly xmlns:j="jelly:core"
+         xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:scm="/jenkins/scm/api/form"
+         xmlns:f2="/com/cloudbees/jenkins/plugins/bitbucket/form">
+  <j:choose>
+    <j:when test="${descriptor.serverUrlSelectable}">
+      <f:entry title="${%Server}" field="serverUrl">
+        <f:select/>
+      </f:entry>
+    </j:when>
+    <j:otherwise>
+      <f:invisibleEntry>
+        <f:select field="serverUrl"/>
+      </f:invisibleEntry>
+    </j:otherwise>
+  </j:choose>
+  <f:entry title="${%Credentials}" field="credentialsId">
     <c:select/>
   </f:entry>
   <f:entry title="${%Owner}" field="repoOwner">
     <f:textbox/>
   </f:entry>
   <f:entry title="${%Repository Name}" field="repository">
-    <f:textbox/>
+    <!-- TODO switch back to f:select once Jenkins core has JENKINS-42443 -->
+    <f2:select/>
   </f:entry>
-  <f:entry field="autoRegisterHook">
-    <f:checkbox title="${%Auto-register webhook}" />
+  <f:entry title="${%Behaviours}" field="traits">
+    <scm:traits field="traits"/>
   </f:entry>
-  <f:advanced>
-    <f:entry title="${%Include branches}" field="includes">
-      <f:textbox default="*"/>
-    </f:entry>
-    <f:entry title="${%Exclude branches}" field="excludes">
-      <f:textbox/>
-    </f:entry>
-    <f:entry title="${%Checkout Credentials}" field="checkoutCredentialsId">
-      <c:select default="${descriptor.SAME}"/>
-    </f:entry>
-    <f:entry title="${%Bitbucket Server URL}" field="bitbucketServerUrl">
-      <f:textbox />
-    </f:entry>
-    <f:entry title="${%Bitbucket Server SSH port}" field="sshPort">
-      <f:textbox />
-    </f:entry>
-  </f:advanced>
 </j:jelly>

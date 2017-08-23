@@ -31,16 +31,16 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPushEvent;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepositoryType;
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudWebhookPayload;
 import com.cloudbees.jenkins.plugins.bitbucket.client.events.BitbucketCloudPushEvent;
+import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketCloudEndpoint;
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.BitbucketServerWebhookPayload;
-
 import com.cloudbees.jenkins.plugins.bitbucket.server.events.BitbucketServerPushEvent;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.scm.SCM;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -51,7 +51,6 @@ import jenkins.scm.api.SCMHeadEvent;
 import jenkins.scm.api.SCMNavigator;
 import jenkins.scm.api.SCMRevision;
 import jenkins.scm.api.SCMSource;
-import org.codehaus.jackson.map.ObjectMapper;
 
 public class PushHookProcessor extends HookProcessor {
 
@@ -91,17 +90,14 @@ public class PushHookProcessor extends HookProcessor {
                                 return false;
                             }
                             BitbucketSCMNavigator bbNav = (BitbucketSCMNavigator) navigator;
-                            if (!isBitbucketServerUrlMatch(bbNav.getBitbucketServerUrl())) {
+                            if (!isServerUrlMatch(bbNav.getServerUrl())) {
                                 return false;
                             }
-                            if (!bbNav.getRepoOwner().equalsIgnoreCase(getPayload().getRepository().getOwnerName())) {
-                                return false;
-                            }
-                            return true;
+                            return bbNav.getRepoOwner().equalsIgnoreCase(getPayload().getRepository().getOwnerName());
                         }
 
-                        private boolean isBitbucketServerUrlMatch(String serverUrl) {
-                            if (serverUrl == null) {
+                        private boolean isServerUrlMatch(String serverUrl) {
+                            if (serverUrl == null || BitbucketCloudEndpoint.SERVER_URL.equals(serverUrl)) {
                                 // this is a Bitbucket cloud navigator
                                 if (getPayload() instanceof BitbucketServerPushEvent) {
                                     return false;
@@ -111,18 +107,22 @@ public class PushHookProcessor extends HookProcessor {
                                 if (getPayload() instanceof BitbucketCloudPushEvent) {
                                     return false;
                                 }
-                                Map<String, BitbucketHref> links = getPayload().getRepository().getLinks();
+                                Map<String, List<BitbucketHref>> links = getPayload().getRepository().getLinks();
                                 if (links != null && links.containsKey("self")) {
-                                    try {
-                                        URI navUri = new URI(serverUrl);
-                                        URI evtUri = new URI(links.get("self").getHref());
-                                        if (!navUri.getHost().equalsIgnoreCase(evtUri.getHost())) {
-                                            // from a different Bitbucket server
-                                            return false;
+                                    boolean matches = false;
+                                    for (BitbucketHref link : links.get("self")) {
+                                        try {
+                                            URI navUri = new URI(serverUrl);
+                                            URI evtUri = new URI(link.getHref());
+                                            if (navUri.getHost().equalsIgnoreCase(evtUri.getHost())) {
+                                                matches = true;
+                                                break;
+                                            }
+                                        } catch (URISyntaxException e) {
+                                            // ignore
                                         }
-                                    } catch (URISyntaxException e) {
-                                        // ignore
                                     }
+                                    return matches;
                                 }
                             }
                             return true;
@@ -141,7 +141,7 @@ public class PushHookProcessor extends HookProcessor {
                                 return Collections.emptyMap();
                             }
                             BitbucketSCMSource src = (BitbucketSCMSource) source;
-                            if (!isBitbucketServerUrlMatch(src.getBitbucketServerUrl())) {
+                            if (!isServerUrlMatch(src.getServerUrl())) {
                                 return Collections.emptyMap();
                             }
                             if (!src.getRepoOwner().equalsIgnoreCase(getPayload().getRepository().getOwnerName())) {

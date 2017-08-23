@@ -23,21 +23,15 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import com.cloudbees.plugins.credentials.CredentialsMatcher;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Queue;
 import hudson.model.queue.Tasks;
 import hudson.security.ACL;
-import java.util.List;
 import jenkins.scm.api.SCMSourceOwner;
 import org.apache.commons.lang.StringUtils;
 
@@ -62,7 +56,7 @@ class BitbucketCredentials {
                             context instanceof Queue.Task
                                     ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
                                     : ACL.SYSTEM,
-                            domainRequirementsOf(serverUrl)
+                            URIRequirementBuilder.fromUri(serverUrl).build()
                     ),
                     CredentialsMatchers.allOf(
                             CredentialsMatchers.withId(id),
@@ -71,55 +65,6 @@ class BitbucketCredentials {
             );
         }
         return null;
-    }
-
-    static StandardListBoxModel fillCheckoutCredentials(@CheckForNull String serverUrl,
-                                                        @NonNull SCMSourceOwner context,
-                                                        @NonNull StandardListBoxModel result) {
-        result.includeMatchingAs(
-                context instanceof Queue.Task
-                        ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                        : ACL.SYSTEM,
-                context,
-                StandardCredentials.class,
-                domainRequirementsOf(serverUrl),
-                checkoutMatcher()
-        );
-        return result;
-    }
-
-    static StandardListBoxModel fillCredentials(@CheckForNull String serverUrl,
-                                                @NonNull SCMSourceOwner context,
-                                                @NonNull StandardListBoxModel result) {
-        result.includeMatchingAs(
-                context instanceof Queue.Task
-                        ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                        : ACL.SYSTEM,
-                context,
-                StandardUsernameCredentials.class,
-                domainRequirementsOf(serverUrl),
-                matcher()
-        );
-        return result;
-    }
-
-    /* package */
-    static CredentialsMatcher matcher() {
-        return CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardUsernamePasswordCredentials.class));
-    }
-
-    /* package */
-    static CredentialsMatcher checkoutMatcher() {
-        return CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(StandardCredentials.class));
-    }
-
-    /* package */
-    static List<DomainRequirement> domainRequirementsOf(@CheckForNull String serverUrl) {
-        if (serverUrl == null) {
-            return URIRequirementBuilder.fromUri("https://bitbucket.org").build();
-        } else {
-            return URIRequirementBuilder.fromUri(serverUrl).build();
-        }
     }
 
 }
