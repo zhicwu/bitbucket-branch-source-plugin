@@ -373,6 +373,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 page = parse(response, BitbucketServerBranches.class);
                 branches.addAll(page.getValues());
             }
+            for (BitbucketServerBranch branch: branches) {
+                branch.setTimestamp(resolveCommit(branch.getRawNode()).getDateMillis());
+            }
             return branches;
         } catch (IOException e) {
             throw new IOException("I/O error when accessing URL: " + url, e);

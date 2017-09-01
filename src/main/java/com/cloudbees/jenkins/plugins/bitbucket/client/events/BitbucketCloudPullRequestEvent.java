@@ -89,6 +89,13 @@ public class BitbucketCloudPullRequestEvent implements BitbucketPullRequestEvent
                 this.pullRequest.getSource().getBranch()
                         .setRawNode(this.pullRequest.getSource().getCommit().getHash());
             }
+            if (this.pullRequest.getSource() != null
+                    && this.pullRequest.getSource().getCommit() != null
+                    && this.pullRequest.getSource().getBranch() != null
+                    && this.pullRequest.getSource().getBranch().getDate() == null) {
+                this.pullRequest.getSource().getBranch()
+                        .setDate(this.pullRequest.getSource().getCommit().getDate());
+            }
             if (this.pullRequest.getDestination() != null
                     && this.pullRequest.getDestination().getRepository() != null) {
                 if (this.pullRequest.getDestination().getRepository().getScm() == null) {

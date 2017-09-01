@@ -28,6 +28,9 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBranch;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BitbucketCloudBranch implements BitbucketBranch {
 
@@ -35,6 +38,10 @@ public class BitbucketCloudBranch implements BitbucketBranch {
     private String rawNode;
 
     private String name;
+
+    //Bitbucket cloud signals timestamps formatted after "2017-08-30 07:45:04+00:00"
+    @JsonProperty("utctimestamp")
+    private String date;
 
     // Needed for compatibility with different Bitbucket API JSON messages
     private String branch;
@@ -58,12 +65,30 @@ public class BitbucketCloudBranch implements BitbucketBranch {
         return name != null ? name : branch;
     }
 
+    public String getDate() {
+        return date;
+    }
+
+    @Override
+    public long getDateMillis() {
+        final SimpleDateFormat dateParser = new SimpleDateFormat("yyyy-MM-dd HH:mm:ssXXX");
+        try {
+            return dateParser.parse(date).getTime();
+        } catch (ParseException e) {
+            return 0;
+        }
+    }
+
     public void setRawNode(String rawNode) {
         this.rawNode = rawNode;
     }
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
     }
 
 }

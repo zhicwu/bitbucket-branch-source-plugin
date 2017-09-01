@@ -34,6 +34,8 @@ public class BitbucketServerBranch implements BitbucketBranch {
 
     private String latestCommit;
 
+    private long timestamp;
+
     public BitbucketServerBranch() {
     }
 
@@ -52,6 +54,15 @@ public class BitbucketServerBranch implements BitbucketBranch {
         return displayId;
     }
 
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    @Override
+    public long getDateMillis() {
+        return timestamp;
+    }
+
     public void setDisplayId(String displayId) {
         this.displayId = displayId;
     }
@@ -66,6 +77,10 @@ public class BitbucketServerBranch implements BitbucketBranch {
 
     public void setRawNode(String latestCommit) {
         this.latestCommit = latestCommit;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 
 }
