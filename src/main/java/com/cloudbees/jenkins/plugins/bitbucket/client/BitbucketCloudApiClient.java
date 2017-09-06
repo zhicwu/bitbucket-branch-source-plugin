@@ -90,6 +90,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private static final String V2_API_BASE_URL = "https://api.bitbucket.org/2.0/repositories/";
     private static final String V2_TEAMS_API_BASE_URL = "https://api.bitbucket.org/2.0/teams/";
     private static final int MAX_PAGES = 100;
+    private static final int API_RATE_LIMIT_CODE = 429;
     private HttpClient client;
     private static final MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
     private final String owner;
@@ -415,7 +416,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      * {@inheritDoc}
      */
     @Override
-    public void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException {
+    public void postBuildStatus(@NonNull BitbucketBuildStatus status) throws IOException, InterruptedException {
         String path = V2_API_BASE_URL + this.owner + "/" + this.repositoryName + "/commit/" + status.getHash()
                 + "/statuses/build";
 
@@ -591,6 +592,11 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         try {
             executeMethod(client, httpget);
             String response = getResponseContent(httpget, httpget.getResponseContentLength());
+            while (httpget.getStatusCode() == API_RATE_LIMIT_CODE) {
+                Thread.sleep(5000);
+                executeMethod(client, httpget);
+                response = getResponseContent(httpget, httpget.getResponseContentLength());
+            }
             if (httpget.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
@@ -630,11 +636,15 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private void deleteRequest(String path) throws IOException {
+    private void deleteRequest(String path) throws IOException, InterruptedException {
         HttpClient client = getHttpClient();
         DeleteMethod httppost = new DeleteMethod(path);
         try {
             executeMethod(client, httppost);
+            while (httppost.getStatusCode() == API_RATE_LIMIT_CODE) {
+                Thread.sleep(5000);
+                executeMethod(client, httppost);
+            }
             if (httppost.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 throw new FileNotFoundException("URL: " + path);
             }
@@ -650,10 +660,14 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         }
     }
 
-    private String postRequest(PostMethod httppost) throws IOException {
+    private String postRequest(PostMethod httppost) throws IOException, InterruptedException {
         HttpClient client = getHttpClient();
         try {
             executeMethod(client, httppost);
+            while (httppost.getStatusCode() == API_RATE_LIMIT_CODE) {
+                Thread.sleep(5000);
+                executeMethod(client, httppost);
+            }
             if (httppost.getStatusCode() == HttpStatus.SC_NO_CONTENT) {
                 // 204, no content
                 return "";
@@ -701,13 +715,13 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         return mapper.writeValueAsString(o);
     }
 
-    private String postRequest(String path, String content) throws IOException {
+    private String postRequest(String path, String content) throws IOException, InterruptedException {
         PostMethod httppost = new PostMethod(path);
         httppost.setRequestEntity(new StringRequestEntity(content, "application/json", "UTF-8"));
         return postRequest(httppost);
     }
 
-    private String postRequest(String path, NameValuePair[] params) throws IOException {
+    private String postRequest(String path, NameValuePair[] params) throws IOException, InterruptedException {
         PostMethod httppost = new PostMethod(path);
         httppost.setRequestBody(params);
         return postRequest(httppost);
