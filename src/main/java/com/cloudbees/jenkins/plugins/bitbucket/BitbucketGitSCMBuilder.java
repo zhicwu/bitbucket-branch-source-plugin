@@ -223,7 +223,7 @@ public class BitbucketGitSCMBuilder extends GitSCMBuilder<BitbucketGitSCMBuilder
             PullRequestSCMHead head = (PullRequestSCMHead) h;
             if (head.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.MERGE) {
                 String name = head.getTarget().getName();
-                String localName = head.getBranchName().equals(name) ? "upstream-" + name : name;
+                String localName = name;
 
                 String remoteName = remoteName().equals("upstream") ? "upstream-upstream" : "upstream";
                 withAdditionalRemote(remoteName,
